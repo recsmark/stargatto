@@ -112,7 +112,7 @@ public class StarGenerator : MonoBehaviour
     void Start()
     {
         // wait for DB
-        if (database == null || !database.isLoaded)
+        if (database == null)
         {
             Debug.LogError("StarDatabase non collegato o non caricato!");
         }

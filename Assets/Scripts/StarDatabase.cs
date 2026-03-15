@@ -1,11 +1,13 @@
 ﻿using JetBrains.Annotations;
 using System;
+using System.Collections;
 using System.Linq; // needed for Map.All
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using UnityEngine;
 using UnityEngine.UIElements;
+using UnityEngine.Networking; // needed for WebGL
 
 public class StarData
 {
@@ -164,33 +166,30 @@ public class StarDatabase : MonoBehaviour
         }
     }
 
+    public bool IsReady { get; private set; } = false;
+    public float downloadProgress { get; private set; } = 0f; //0f->1f = 100%
     private string datFilePath;
     private string datFileName = "db.dat";
 
     void Awake()
     {
-        // Impostiamo il percorso del file .dat
-        datFilePath = Path.Combine(Application.streamingAssetsPath, datFileName);
-
-        // Avviamo la logica di caricamento immediatamente
         InitializeDatabase();
     }
 
     public void InitializeDatabase()
     {
         bool loaded = true;
-        if (File.Exists(datFilePath))
-        {
-            Debug.Log("File "+ datFileName + "trovato! Caricamento binario...");
-            LoadFromDat();
-        }
-        else
+#if (!UNITY_WEBGL && !UNITY_EDITOR) //avoid csv reading when deploy as WEBGL
         {
             Debug.Log("File "+ datFileName + " non trovato. Generazione dai CSV...");
             loaded = ReadFromCsvAndCreateDat();
             if (loaded)
-                LoadFromDat();
+                StartCoroutine(LoadDatabaseRoutine());
         }
+#else
+        //Assuming .dat present
+        StartCoroutine(LoadDatabaseRoutine());
+#endif
 
         if (!loaded)
         {
@@ -199,7 +198,7 @@ public class StarDatabase : MonoBehaviour
     }
 
     // --- READING FROM .DAT FILE ---
-    private void LoadFromDat()
+    private bool LoadFromDat(byte[] fileData)
     {
         //clear list to force re-reading from bin
         //so names are in the right version
@@ -207,52 +206,64 @@ public class StarDatabase : MonoBehaviour
         constellationDict.Clear();
         linkList.Clear();
 
-        using (BinaryReader reader = new BinaryReader(File.Open(datFilePath, FileMode.Open)))
+        try
         {
-            // 1. Read star DB
-            int starCount = reader.ReadInt32();
-            for (int i = 0; i < starCount; i++)
+            //using (BinaryReader reader = new BinaryReader(File.Open(datFilePath, FileMode.Open)))
+            using (MemoryStream ms = new MemoryStream(fileData))
+            using (BinaryReader reader = new BinaryReader(ms))
             {
-                StarData star = new StarData();
-                star.id = reader.ReadInt32();
-                star.name = ObfuscateString(reader.ReadString());
-                star.ra = reader.ReadSingle();
-                star.dec = reader.ReadSingle();
-                star.mag = reader.ReadSingle();
-                star.colorIndex = reader.ReadSingle();
+                // 1. Read star DB
+                int starCount = reader.ReadInt32();
+                for (int i = 0; i < starCount; i++)
+                {
+                    StarData star = new StarData();
+                    star.id = reader.ReadInt32();
+                    star.name = ObfuscateString(reader.ReadString());
+                    star.ra = reader.ReadSingle();
+                    star.dec = reader.ReadSingle();
+                    star.mag = reader.ReadSingle();
+                    star.colorIndex = reader.ReadSingle();
 
-                starDict.Add(star.id, star);
+                    starDict.Add(star.id, star);
+                }
+
+                // 2. Read constellation DB
+                int constCount = reader.ReadInt32();
+                for (int i = 0; i < constCount; i++)
+                {
+                    ConstellationInfo info = new ConstellationInfo();
+                    info.id = ObfuscateString(reader.ReadString());
+                    info.itaName = ObfuscateString(reader.ReadString());
+                    info.engName = ObfuscateString(reader.ReadString());
+                    info.meaning = ObfuscateString(reader.ReadString());
+                    info.hemisphere = ObfuscateString(reader.ReadString());
+
+                    constellationDict.Add(info.id, info);
+                }
+
+                // 3. Read lines DB
+                int linkCount = reader.ReadInt32();
+                for (int i = 0; i < linkCount; i++)
+                {
+                    ConstellationLink link = new ConstellationLink();
+                    link.constellationId = ObfuscateString(reader.ReadString());
+                    link.startId = reader.ReadInt32();
+                    link.endId = reader.ReadInt32();
+
+                    linkList.Add(link);
+                }
             }
 
-            // 2. Read constellation DB
-            int constCount = reader.ReadInt32();
-            for (int i = 0; i < constCount; i++)
-            {
-                ConstellationInfo info = new ConstellationInfo();
-                info.id = ObfuscateString(reader.ReadString());
-                info.itaName = ObfuscateString(reader.ReadString());
-                info.engName = ObfuscateString(reader.ReadString());
-                info.meaning = ObfuscateString(reader.ReadString());
-                info.hemisphere = ObfuscateString(reader.ReadString());
-
-                constellationDict.Add(info.id, info);
-            }
-
-            // 3. Read lines DB
-            int linkCount = reader.ReadInt32();
-            for (int i = 0; i < linkCount; i++)
-            {
-                ConstellationLink link = new ConstellationLink();
-                link.constellationId = ObfuscateString(reader.ReadString());
-                link.startId = reader.ReadInt32();
-                link.endId = reader.ReadInt32();
-
-                linkList.Add(link);
-            }
+            isLoaded = true;
+            IsReady = true;
+            Debug.Log($"Caricamento .DAT completato: {starDict.Count} stelle, {constellationDict.Count} costellazioni, {linkList.Count} linee.");
+            return true;
         }
-
-        isLoaded = true;
-        Debug.Log($"Caricamento .DAT completato: {starDict.Count} stelle, {constellationDict.Count} costellazioni, {linkList.Count} linee.");
+        catch (System.Exception e)
+        {
+            Debug.LogError("Errore durante il parsing dei dati: " + e.Message);
+            return false;
+        }
     }
 
     // --- READ FROM .CSV and CREATING .DAT ---
@@ -480,5 +491,82 @@ public class StarDatabase : MonoBehaviour
         if (!constellationDict.ContainsKey(ObfuscateString(data[starIdx.con].ToUpper()))) return true;
 
         return false;
+    }
+
+    private IEnumerator LoadDatabaseRoutine()
+    {
+        datFilePath = Path.Combine(Application.streamingAssetsPath, datFileName);
+#if UNITY_WEBGL && !UNITY_EDITOR
+        // =========================================================
+        // BUILD WEBGL
+        // =========================================================
+        datFilePath = datFilePath.Replace("\\", "/");
+
+        // UnityWebRequest call for download
+        using (UnityWebRequest uwr = UnityWebRequest.Get(datFilePath))
+        {
+            // wait until ends while getting pointer
+            var operation = uwr.SendWebRequest();
+            // Finché l'operazione non ha finito, aggiorniamo il progresso frame per frame!
+            while (!operation.isDone)
+            {
+                downloadProgress = uwr.downloadProgress;
+                yield return null; // Aspetta il prossimo frame
+            }
+
+            downloadProgress = 1f; //safe set
+
+            if (uwr.result != UnityWebRequest.Result.Success)
+            {
+                Debug.LogError("Errore critico: Impossibile caricare stars.dat - " + uwr.error);
+                IsReady = false;
+            }
+            else
+            {
+                byte[] rawData = uwr.downloadHandler.data;
+                IsReady = LoadFromDat(rawData);
+                rawData = null; //clean byte array
+            }
+        }
+
+        // Unload RAM from not needed assets (.dat)
+        yield return Resources.UnloadUnusedAssets();
+#else
+        // =========================================================
+        // BUILD DESKTOP
+        // =========================================================
+#if UNITY_EDITOR
+        // Test loading bar
+        float simDelay = 5.0f;
+        float myClock = 0f;
+
+        while (myClock < simDelay)
+        {
+            myClock += Time.deltaTime;
+            downloadProgress = myClock / simDelay;
+
+            yield return null; // update a frame
+        }
+#endif
+        downloadProgress = 1f;
+        try
+        {
+            if (!File.Exists(datFilePath))
+                yield break;
+
+            byte[] rawData = System.IO.File.ReadAllBytes(datFilePath);
+            IsReady = LoadFromDat(rawData);
+
+            rawData = null;
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogError("Errore lettura locale: " + e.Message);
+            IsReady = false;
+        }
+
+        yield return null;
+#endif
+        System.GC.Collect();
     }
 }

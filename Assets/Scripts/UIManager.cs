@@ -1,8 +1,8 @@
 ﻿using System.Collections; //needed for music
-using TMPro; // needed for TextMeshPro!
+using TMPro; // needed for TextMeshPro
 using UnityEngine;
 using UnityEngine.Video;
-
+using UnityEngine.UI; // needed for slider
 public enum AppLanguage
 {
     Italian,
@@ -54,8 +54,13 @@ public class UIManager : MonoBehaviour
     public StarGenerator starGenerator;
     public SkyInteractionManager skyIteractionManager;
 
+    [Header("Database")]
+    public StarDatabase starDatabase;
+    public Slider loadingBar;
+
     private bool isInMenu = true;
     private bool isHelpOpen = false;
+    private TextMeshProUGUI startText;
 
     void Start()
     {
@@ -75,6 +80,21 @@ public class UIManager : MonoBehaviour
 
     void Update()
     {
+        if (loadingBar != null && starDatabase != null && !starDatabase.IsReady)
+        {
+            loadingBar.value = starDatabase.downloadProgress;
+        }
+        else if (loadingBar != null && starDatabase != null && starDatabase.IsReady)
+        {
+            loadingBar.value = 1f;
+            if (loadingBar.IsActive())
+            {
+                startText = webStartPanel.GetComponentInChildren<TextMeshProUGUI>();
+                startText.text = "BENVENUTI IN ASTROGATTO!\n<size=60%> CLICCA OVUNQUE PER AVVIARE";
+            }
+                
+            loadingBar.gameObject.SetActive(false);
+        }
 #if UNITY_WEBGL
         if (!isInMenu && !webStartPanel.activeSelf && !cameraController.enabled)
         {
