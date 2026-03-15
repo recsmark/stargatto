@@ -69,6 +69,7 @@ mono_crash.*
 # Others
 *.csv
 *.csv.meta
+/WebGLBuild/index.html
 /Assets/StreamingAssets/*.dat*
 
 # Builds

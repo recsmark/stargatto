@@ -1868,7 +1868,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: BENVENUTI IN ASTROGATTO!
+  m_text: BENVENUTI IN STARGATTO!
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: d89b4977b63e52d4a822579bf8437428, type: 2}
   m_sharedMaterial: {fileID: 5771180710919683361, guid: d89b4977b63e52d4a822579bf8437428,

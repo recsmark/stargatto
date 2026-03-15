@@ -90,7 +90,7 @@ public class UIManager : MonoBehaviour
             if (loadingBar.IsActive())
             {
                 startText = webStartPanel.GetComponentInChildren<TextMeshProUGUI>();
-                startText.text = "BENVENUTI IN ASTROGATTO!\n<size=60%> CLICCA OVUNQUE PER AVVIARE";
+                startText.text = "BENVENUTI IN STARGATTO!\n<size=60%> CLICCA OVUNQUE PER AVVIARE";
             }
                 
             loadingBar.gameObject.SetActive(false);
