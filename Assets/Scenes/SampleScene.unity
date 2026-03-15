@@ -1827,7 +1827,7 @@ MonoBehaviour:
   audioPlayer: {fileID: 922361040}
   menuMusic: {fileID: 8300000, guid: b5fd27adf3733b3439b4a0b36c09fc59, type: 3}
   skyMusic: {fileID: 8300000, guid: 9da74a1fd8721cd4ca71d9f74aa2a8c0, type: 3}
-  videoPlayer: {fileID: 0}
+  videoPlayer: {fileID: 2063828807}
   videoBackgroundUI: {fileID: 2063828805}
   fadeDuration: 3
   maxVolume: 0.3
@@ -2824,7 +2824,7 @@ VideoPlayer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2063828805}
   m_Enabled: 1
-  m_VideoClip: {fileID: 32900000, guid: c34d4eccd1bb49a47b40d6b639e857d5, type: 3}
+  m_VideoClip: {fileID: 0}
   m_TargetCameraAlpha: 1
   m_TargetCamera3DLayout: 0
   m_TargetCamera: {fileID: 0}
@@ -2834,7 +2834,7 @@ VideoPlayer:
   m_TargetMaterialProperty: <noninit>
   m_RenderMode: 2
   m_AspectRatio: 2
-  m_DataSource: 0
+  m_DataSource: 1
   m_TimeUpdateMode: 2
   m_PlaybackSpeed: 0.6
   m_AudioOutputMode: 0

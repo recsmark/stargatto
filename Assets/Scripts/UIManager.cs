@@ -170,6 +170,19 @@ public class UIManager : MonoBehaviour
         {
             ChangeAudioTrack(menuMusic);
         }
+
+        // --- Video Settings for WebGL ---
+        if (videoPlayer != null)
+        {
+            // Seth dynamic path from StreamingAssets.           
+            string videoName = "star_loop1.mp4"; // Scrivi qui il nome esatto del tuo file!
+            string videoPath = System.IO.Path.Combine(Application.streamingAssetsPath, videoName);
+            videoPath = videoPath.Replace("\\", "/"); // avoid browser problems replacing "\\" with "/"
+
+            // Assegniamo l'URL e facciamo partire il proiettore
+            videoPlayer.url = videoPath;
+            videoPlayer.Play();
+        }
     }
 
     public void ShowHelp()
