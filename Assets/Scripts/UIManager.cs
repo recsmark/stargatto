@@ -96,7 +96,7 @@ public class UIManager : MonoBehaviour
             loadingBar.gameObject.SetActive(false);
         }
 #if UNITY_WEBGL
-        if (!isInMenu && !webStartPanel.activeSelf && !cameraController.enabled)
+        if (!isInMenu && !webStartPanel.activeSelf && (!cameraController.enabled && !isHelpOpen))
         {
             ShowMainMenu();
         }
