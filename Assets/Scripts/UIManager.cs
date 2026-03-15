@@ -15,6 +15,11 @@ public class UIManager : MonoBehaviour
     public GameObject mainMenuPanel;
     public GameObject helpPanel;
     public GameObject creditPanel;
+
+    [Header("Schermata di Avvio (WebGL)")]
+    public GameObject webStartPanel;
+
+    [Header("Lingua")]
     public AppLanguage currentLanguage = AppLanguage.Italian;
 
     [Header("Audio")]
@@ -55,11 +60,27 @@ public class UIManager : MonoBehaviour
     void Start()
     {
         SetLanguageItalian(); // Default language
+#if UNITY_WEBGL
+        isInMenu = false;
+        cameraController.enabled = false;
+        // --- WebGL intro screen to avoid audio block ---
+        if (webStartPanel != null)
+        {
+            webStartPanel.SetActive(true);
+        }
+#else
         ShowMainMenu();
+#endif
     }
 
     void Update()
     {
+#if UNITY_WEBGL
+        if (!isInMenu && !webStartPanel.activeSelf && !cameraController.enabled)
+        {
+            ShowMainMenu();
+        }
+#endif
         if (isInMenu && Input.anyKeyDown && 
             !Input.GetMouseButtonDown(0) && !Input.GetMouseButtonDown(1) && !Input.GetMouseButtonDown(2))
         {
@@ -159,29 +180,65 @@ public class UIManager : MonoBehaviour
 
     public void ShowMainMenu()
     {
+        if (webStartPanel != null && webStartPanel.activeSelf)
+        {
+            return; //wait for startScreenPanel to disappear
+        }
+
         isInMenu = true;
+
         mainMenuPanel.SetActive(true);
         helpPanel.SetActive(false);
         cameraController.enabled = false;
 
-        audioPlayer.volume = 0.0f;
-
         if (audioPlayer != null && menuMusic != null)
         {
-            ChangeAudioTrack(menuMusic);
+            if (!audioPlayer.isPlaying)
+            {
+                audioPlayer.volume = 0.0f;
+                ChangeAudioTrack(menuMusic);
+            }
         }
 
         // --- Video Settings for WebGL ---
         if (videoPlayer != null)
         {
+            if (videoPlayer.isPlaying)
+                return; //nothing to do anymore
             // Seth dynamic path from StreamingAssets.           
-            string videoName = "star_loop1.mp4"; // Scrivi qui il nome esatto del tuo file!
+            string videoName = "star_loop1.mp4";
             string videoPath = System.IO.Path.Combine(Application.streamingAssetsPath, videoName);
             videoPath = videoPath.Replace("\\", "/"); // avoid browser problems replacing "\\" with "/"
 
-            // Assegniamo l'URL e facciamo partire il proiettore
             videoPlayer.url = videoPath;
-            videoPlayer.Play();
+            videoPlayer.prepareCompleted += VideoisReady; //subscribe routine to be called at the end of Prepare
+
+            videoPlayer.Prepare(); //launch asynch
+        }
+    }
+
+    private void VideoisReady(VideoPlayer vp)
+    {
+        // Play when all is really ready
+        vp.Play();
+
+        if (webStartPanel != null)
+        {
+            webStartPanel.SetActive(false);
+        }
+
+        // unsubscribe routine
+        vp.prepareCompleted -= VideoisReady;
+    }
+
+    public void JumpWebScreenPanel()
+    {
+        if (webStartPanel != null)
+        {
+#if UNITY_WEBGL
+            webStartPanel.SetActive(false);
+            Canvas.ForceUpdateCanvases();
+#endif
         }
     }
 
