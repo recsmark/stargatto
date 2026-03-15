@@ -66,6 +66,11 @@ sysinfo.txt
 # Mono auto generated files
 mono_crash.*
 
+# Others
+*.csv
+*.csv.meta
+/Assets/StreamingAssets/*.dat*
+
 # Builds
 *.apk
 *.aab
