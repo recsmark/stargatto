@@ -15,6 +15,8 @@ public class UIManager : MonoBehaviour
     public GameObject mainMenuPanel;
     public GameObject helpPanel;
     public GameObject creditPanel;
+    public GameObject upperGamePanel;
+    public GameObject bottomGamePanel;
 
     [Header("Schermata di Avvio (WebGL)")]
     public GameObject webStartPanel;
@@ -43,6 +45,7 @@ public class UIManager : MonoBehaviour
     public TextMeshProUGUI instructionText;
     public TextMeshProUGUI cmndsText;
     public TextMeshProUGUI escapeText;
+    public TextMeshProUGUI versionText;
 
     [Header("Conferma Uscita")]
     public GameObject quitConfirmPanel;
@@ -62,9 +65,18 @@ public class UIManager : MonoBehaviour
     private bool isHelpOpen = false;
     private TextMeshProUGUI startText;
 
+    public string gameVersion
+    {
+        get
+        {
+            return Application.version;
+        }
+    }
+
     void Start()
     {
         SetLanguageItalian(); // Default language
+        versionText.text = "V" + gameVersion + " - " + versionText.text;
 #if UNITY_WEBGL
         isInMenu = false;
         cameraController.enabled = false;
@@ -105,7 +117,10 @@ public class UIManager : MonoBehaviour
             !Input.GetMouseButtonDown(0) && !Input.GetMouseButtonDown(1) && !Input.GetMouseButtonDown(2))
         {
             if (!Input.GetKeyDown(KeyCode.Tab) && !Input.GetKeyDown(KeyCode.Escape))
+            {
                 StartSimulation();
+                return;
+            }
         }        
 
         // 1. ESCAPE KEY management
@@ -166,6 +181,16 @@ public class UIManager : MonoBehaviour
                 }
             }
         }
+        else if (Input.GetKeyDown(KeyCode.H))
+        {
+            if (!isHelpOpen && !isInMenu)
+            {
+                if (starGenerator != null)
+                {
+                    starGenerator.ToggleReveal();
+                }
+            }
+        }
     }
 
     public void StartSimulation()
@@ -174,6 +199,8 @@ public class UIManager : MonoBehaviour
         mainMenuPanel.SetActive(false);
         helpPanel.SetActive(false);
         cameraController.enabled = true;
+        upperGamePanel.SetActive(true);
+        bottomGamePanel.SetActive(true);
 
         if (videoPlayer != null)
         {
@@ -292,8 +319,8 @@ public class UIManager : MonoBehaviour
         if (creditText != null)
         {
             // Credit text
-            string credits = "STARGATTO\n" + 
-                "<size=40%>INTERACTIVE ASTRONOMIC GAME\n" +
+            string credits = "STARGATTO v" + gameVersion +
+                "\n<size=40%>INTERACTIVE ASTRONOMIC GAME\n" +
                 "Find constellation and learn about our sky\n\n" + 
                 "CC BY-NC-ND 2026\n" +
                 "Programming: Marco R.\n" +
@@ -412,7 +439,7 @@ public class UIManager : MonoBehaviour
     // --- QUIT FUNCTION ---
     public void QuitApplication()
     {
-        Debug.Log("Chiusura dell'applicazione...");
+        UnityEngine.Debug.Log("Chiusura dell'applicazione...");
 
         // QUIT .exe file
         Application.Quit();

@@ -30,6 +30,7 @@ public class StarGenerator : MonoBehaviour
     public float pollutionThreshold = 3f; // Stelle con magnitudine >
 
     private bool isPolluted = false;
+    private bool reveal = false;
 
     // Stars
     private Dictionary<int, GameObject> instantiatedStars = new Dictionary<int, GameObject>();
@@ -39,6 +40,8 @@ public class StarGenerator : MonoBehaviour
 
     // Discovered constellations
     public HashSet<string> visibleConstellations = new HashSet<string>();
+    public int totalConstellations;
+    public int totalStars;
 
     // Colors
     private class ColorTable
@@ -109,6 +112,8 @@ public class StarGenerator : MonoBehaviour
 
     private float shrinkMargin = 1f; //for not overlap star and lines collider
 
+    public bool skyRevealed => reveal;
+
     void Start()
     {
         // wait for DB
@@ -136,6 +141,9 @@ public class StarGenerator : MonoBehaviour
             GenerateProjectedStar(star.id, star.name, star.ra, star.dec, star.colorIndex, star.mag);
         }
         Debug.Log($"Generazione completata: {instantiatedStars.Count} stelle create a schermo.");
+
+        totalConstellations = database.constellationDict.Count;
+        totalStars = database.starDict.Count;
     }
 
     void GenerateProjectedStar(int starId, string starName, float raHours, float decDegrees, float bvIndex, float magnitude)
@@ -222,7 +230,6 @@ public class StarGenerator : MonoBehaviour
         lr.endColor = hiddenColor;
         lr.useWorldSpace = false; 
 
-
         EdgeCollider2D edgeCol = lineObj.AddComponent<EdgeCollider2D>();
 
         //Short line collider to gave star the priority
@@ -303,9 +310,30 @@ public class StarGenerator : MonoBehaviour
         Debug.Log($"Inquinamento luminoso: {(isPolluted ? "ATTIVO" : "DISATTIVO")}");
     }
 
+
+    public void ToggleReveal()
+    {
+        reveal = !skyRevealed;
+        foreach (var constId in database.constellationDict.Keys)
+        {
+            if (constellationLines.ContainsKey(constId))
+            {
+                Color targetColor = skyRevealed ? normalColor : hiddenColor;
+                if (visibleConstellations.Contains(constId))
+                    targetColor = normalColor;
+                foreach (LineRenderer lr in constellationLines[constId])
+                {
+                    lr.startColor = targetColor;
+                    lr.endColor = targetColor;
+                }
+            }
+        }
+
+    }
+
     public void SetConstellationGlow(string constId, bool isGlowing)
     {
-        if (constellationLines.ContainsKey(constId) && visibleConstellations.Contains(constId))
+        if (constellationLines.ContainsKey(constId) && (visibleConstellations.Contains(constId) || skyRevealed))
         {
             Color targetColor = isGlowing ? glowColor : normalColor;
             
@@ -326,14 +354,15 @@ public class StarGenerator : MonoBehaviour
 
     float CalculateStarScale(float magnitude)
     {
-        // Apparen Magnitude -1.5 (Sirio, brighter) to 6.5 (naked eye)
+        // Apparent Magnitude -1.5 (Sirio, brighter) to 6.5 (naked eye)
         // InverseLerp interpolates these  value from 1 to 0, reversed
         // (es: mag 6.0 -> 0.0, mag -1.5 -> 1.0)
         float normalizedMag = Mathf.InverseLerp(database.maxNakedEyeMagnitude, -1.5f, magnitude);
 
         // map normalization to visible scales
-        float finalScale = Mathf.Lerp(minStarRadius, maxStarRadius, normalizedMag);
 
+        float finalScale = Mathf.Lerp(minStarRadius, maxStarRadius, normalizedMag);
+        
         return finalScale;
     }
 }

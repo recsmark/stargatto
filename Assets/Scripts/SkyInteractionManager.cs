@@ -1,11 +1,17 @@
 ﻿using UnityEngine;
 using TMPro; // TextMeshPro
+using System; //dateTime
+using System.Globalization;
 
 public class SkyInteractionManager : MonoBehaviour
 {
     [Header("Riferimenti")]
     public StarGenerator starGenerator;
     public Camera mainCamera;
+
+    [Header("GameUI")]
+    public TextMeshProUGUI upperText;
+    public TextMeshProUGUI bottomText;
 
     [Header("Tooltip UI")] // tooltip (Star/Constellation name)
     public RectTransform tooltipPanel;
@@ -55,17 +61,17 @@ public class SkyInteractionManager : MonoBehaviour
             {
                 // Get constellation ID from name (es: from "Line_Ori" to "Ori") ..
                 string constId = objName.Split('_')[1];
-                newHoveredConstellation = constId;
 
                 // search only if already visible
-                if (starGenerator.visibleConstellations.Contains(constId))
+                if (starGenerator.skyRevealed || starGenerator.visibleConstellations.Contains(constId))
                 {
+                    newHoveredConstellation = constId;
                     // ... and use in dictionary to retrieve name
                     if (starGenerator.database.constellationDict.ContainsKey(constId))
                     {
                         string fullName = currentLanguage == AppLanguage.Italian ? starGenerator.database.constellationDict[constId].itaName
                              : starGenerator.database.constellationDict[constId].itaName;
-                        ShowTooltip(fullName);
+                        ShowTooltip(fullName, true);
                     }
                 }
 
@@ -99,12 +105,18 @@ public class SkyInteractionManager : MonoBehaviour
 
         // Trace the current constellation
         currentHoveredConstellation = newHoveredConstellation;
+
+        updateGameUI();
     }
 
     // --- UTILITY METHODS ---
-    private void ShowTooltip(string textToShow)
+    private void ShowTooltip(string textToShow, bool isConstellation = false)
     {
         tooltipPanel.gameObject.SetActive(true);
+        if (isConstellation)
+        {
+
+        }
         tooltipText.text = textToShow;
 
         // 1. Tooltip absolute position
@@ -132,5 +144,38 @@ public class SkyInteractionManager : MonoBehaviour
     public void SetCurrentLanguage(AppLanguage language)
     {
         currentLanguage = language;
+    }
+
+    public void updateGameUI()
+    {
+        //TimeSpan deltaTime = 4f;
+        float deltaTime = 3.4f;
+        DateTime currentTime = System.DateTime.UtcNow.AddHours(deltaTime);
+        upperText.text = currentTime.ToString(); 
+        
+        /*ParseExact(
+                               "ddd, dd MMM yyyy HH:mm:ss 'GMT'",
+                               CultureInfo.InvariantCulture.DateTimeFormat,
+                               DateTimeStyles.AssumeUniversal);*/
+
+        if (currentLanguage == AppLanguage.Italian)
+            bottomText.text = "Costellazioni trovate ";
+        else
+            bottomText.text = "Found constellations ";
+
+        bottomText.text += starGenerator.visibleConstellations.Count.ToString() + "/" + starGenerator.totalConstellations.ToString();
+
+        if (currentLanguage == AppLanguage.Italian)
+            bottomText.text += " - Stelle: ";
+        else
+            bottomText.text += " - Stars :";
+
+        bottomText.text += starGenerator.totalStars.ToString();
+
+        if (currentLanguage == AppLanguage.Italian)
+            bottomText.text += " - ISTRUZIONI: ";
+        else
+            bottomText.text += " - INSTRUCTIONS: ";
+        bottomText.text += " TAB";
     }
 }
