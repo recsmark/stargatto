@@ -40,7 +40,8 @@ public class ConstellationLink
 public class StarDatabase : MonoBehaviour
 {
     private readonly byte xorKey = 12; //encoder key
-    public readonly float maxNakedEyeMagnitude = 5f; //should be 6.5f
+    public readonly float maxNakedEyeMagnitude = 5.5f; //should be 6.5f
+    const int maxStars = 3000;
 
     public bool isLoaded = false;
 
@@ -102,7 +103,7 @@ public class StarDatabase : MonoBehaviour
         public readonly char separator = ',';
         const string idStr = "Sigla";//"ID";
         const string itaNameStr = "Costellazione";//"ItaName";
-        const string engNameStr = "EngName";
+        const string engNameStr = "Nome Inglese";
         const string meanStr = "Origine";//"Meaning";
         const string hemisphStr = "Visibilit"; //"Hemisphere";
 
@@ -111,7 +112,7 @@ public class StarDatabase : MonoBehaviour
         {
             { idStr, -1 },
             { itaNameStr, -1 },
-            //{ engNameStr, -1 },
+            { engNameStr, -1 },
             { meanStr, -1 },
             { hemisphStr, -1 }
         };
@@ -119,7 +120,7 @@ public class StarDatabase : MonoBehaviour
         // reading shortCut
         public int id => indices[idStr];
         public int itaName => indices[itaNameStr];
-        //public int engName => indices[engNameStr];
+        public int engName => indices[engNameStr];
         public int mean => indices[meanStr];
         public int hemisph => indices[hemisphStr];
 
@@ -137,6 +138,7 @@ public class StarDatabase : MonoBehaviour
 
     private class LinkCsvIndices
     {
+        //https://github.com/MarcvdSluys/ConstellationLines?tab=readme-ov-file
         public readonly string fileName = "ConstellationLines.csv"; //uses ID as YALE BRIGHT STAR CATALOGUE //"constellations.csv";
         public readonly char separator = ',';
         const string idStr = "abr";
@@ -179,7 +181,9 @@ public class StarDatabase : MonoBehaviour
     public void InitializeDatabase()
     {
         bool loaded = true;
-#if (!UNITY_WEBGL && !UNITY_EDITOR) //avoid csv reading when deploy as WEBGL
+        datFilePath = Path.Combine(Application.streamingAssetsPath, datFileName);
+        datFilePath = datFilePath.Replace("\\", "/");
+#if (!UNITY_WEBGL || UNITY_EDITOR) //avoid csv reading when deploy as WEBGL
         {
             Debug.Log("File "+ datFileName + " non trovato. Generazione dai CSV...");
             loaded = ReadFromCsvAndCreateDat();
@@ -273,9 +277,9 @@ public class StarDatabase : MonoBehaviour
         ConstCsvIndices constIdx = new ConstCsvIndices();
         LinkCsvIndices linkIdx = new LinkCsvIndices();
 
-        string starsCsvPath = Path.Combine(Application.streamingAssetsPath, starIdx.fileName);
-        string constDataCsvPath = Path.Combine(Application.streamingAssetsPath, constIdx.fileName);
-        string constLinksCsvPath = Path.Combine(Application.streamingAssetsPath, linkIdx.fileName);
+        string starsCsvPath = Path.Combine(Application.streamingAssetsPath, "csv", starIdx.fileName);
+        string constDataCsvPath = Path.Combine(Application.streamingAssetsPath, "csv", constIdx.fileName);
+        string constLinksCsvPath = Path.Combine(Application.streamingAssetsPath, "csv", linkIdx.fileName);
 
         // Check CSV exist
         if (!File.Exists(starsCsvPath) || !File.Exists(constDataCsvPath) || !File.Exists(constLinksCsvPath))
@@ -303,8 +307,14 @@ public class StarDatabase : MonoBehaviour
             {
                 ConstellationInfo info = new ConstellationInfo();
                 info.id = ObfuscateString(data[constIdx.id].ToUpper());
+                if (constellationDict.ContainsKey(info.id))
+                {
+                    Debug.Log("Costellazione con id " + data[constIdx.id].ToUpper() + " duplicata");
+                    continue;
+                }
+
                 info.itaName = ObfuscateString(data[constIdx.itaName]);
-                info.engName = info.itaName; // ObfuscateString(data[constIdx.engName]);
+                info.engName = ObfuscateString(data[constIdx.engName]);
                 info.meaning = ObfuscateString(data[constIdx.mean]);
                 info.hemisphere = ObfuscateString(data[constIdx.hemisph]);
                 constellationDict.Add(info.id, info);
@@ -323,6 +333,7 @@ public class StarDatabase : MonoBehaviour
             return false;
         }
 
+        int missedStars = 0;
         for (int i = 1; i < starLines.Length; i++) //  jump header
         {
             string[] data = starLines[i].Split(starIdx.separator);
@@ -330,6 +341,12 @@ public class StarDatabase : MonoBehaviour
             {
                 if (FilterStar(data, starIdx, constellationDict))
                     continue;
+
+                if (starDict.Count >= maxStars)
+                {
+                    missedStars += 1;
+                    continue; //safe exit after maxStars stars, TBD filtering
+                }
 
                 StarData star = new StarData();
                 star.id = int.Parse(data[starIdx.id]);
@@ -339,11 +356,11 @@ public class StarDatabase : MonoBehaviour
                 star.mag = float.Parse(data[starIdx.mag], CultureInfo.InvariantCulture);
                 star.colorIndex = float.Parse(data[starIdx.color], CultureInfo.InvariantCulture);
                 starDict.Add(star.id, star);
-            }
-
-            if (starDict.Count >= 1000)
-                break; //safe exit after 1000 stars, TBD filtering
+            }                
         }
+
+        if (missedStars > 0)
+            Debug.LogWarning("Massimo di stelle raggiunto a " + maxStars.ToString() + " mancherebbero " + missedStars.ToString());
 
         // 3. Parse Constellation Links CSV
         string[] linkLines = File.ReadAllLines(constLinksCsvPath);
@@ -367,29 +384,42 @@ public class StarDatabase : MonoBehaviour
             {   
                 lineCount = int.Parse(data[linkIdx.num]);
                 string cName = ObfuscateString(data[linkIdx.id].ToUpper());
-#if DEBUG
+#if UNITY_EDITOR
                 string altName = ObfuscateString(cName); //debug only
 #endif
                 if (!constellationDict.ContainsKey(cName)) //filter by constellation
                     continue; //next line
 
-                for (int p = 1; p < lineCount; p++)
+                for (int startId = 1; startId < lineCount; startId++)
                 {
-                    startStar = int.Parse(data[linkIdx.num + p]);
-                    endStar = int.Parse(data[linkIdx.num + p + 1]);
+                    startStar = int.Parse(data[linkIdx.num + startId]);
+                    if (!starDict.ContainsKey(startStar))
+                        continue; //advance index
+
+                    //check for a real endline to not miss lines for missing stars
+                    int endId = startId; //because +1 will be added next line
+                    do
+                    {
+                        endId++;
+                        endStar = int.Parse(data[linkIdx.num + endId]);
+                        if (starDict.ContainsKey(endStar)) //valid line found
+                            break;
+                    } 
+                    while (endId < lineCount);
 
                     if (startStar == endStar)
-                        continue; //collapsed line
+                        continue; //collapsed line, unneded safety check
 
                     if (startStar == 0 || endStar == 0)
                         continue; //invalid id
 
-                    if (starDict.ContainsKey(startStar) && starDict.ContainsKey(endStar)) //add only referenced stars
+                    //add only referenced stars
+                    if (starDict.ContainsKey(startStar) && starDict.ContainsKey(endStar)) //redundant check
                     {
                         ConstellationLink link = new ConstellationLink();
                         link.constellationId = cName;
-                        link.startId = int.Parse(data[linkIdx.num + p]);
-                        link.endId = int.Parse(data[linkIdx.num + p + 1]);
+                        link.startId = startStar;
+                        link.endId = endStar;
                         linkList.Add(link);
                     }
                 }
@@ -495,12 +525,10 @@ public class StarDatabase : MonoBehaviour
 
     private IEnumerator LoadDatabaseRoutine()
     {
-        datFilePath = Path.Combine(Application.streamingAssetsPath, datFileName);
 #if UNITY_WEBGL && !UNITY_EDITOR
         // =========================================================
         // BUILD WEBGL
         // =========================================================
-        datFilePath = datFilePath.Replace("\\", "/");
 
         // UnityWebRequest call for download
         using (UnityWebRequest uwr = UnityWebRequest.Get(datFilePath))
@@ -537,7 +565,7 @@ public class StarDatabase : MonoBehaviour
         // =========================================================
 #if UNITY_EDITOR
         // Test loading bar
-        float simDelay = 5.0f;
+        float simDelay = 2.0f;
         float myClock = 0f;
 
         while (myClock < simDelay)
