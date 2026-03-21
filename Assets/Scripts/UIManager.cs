@@ -107,7 +107,7 @@ public class UIManager : MonoBehaviour
                 
             loadingBar.gameObject.SetActive(false);
         }
-#if UNITY_WEBGL
+#if (UNITY_WEBGL || UNITY_EDITOR)
         if (!isInMenu && !webStartPanel.activeSelf && (!cameraController.enabled && !isHelpOpen))
         {
             ShowMainMenu();
@@ -282,7 +282,10 @@ public class UIManager : MonoBehaviour
     {
         if (webStartPanel != null)
         {
+           if (loadingBar.gameObject.activeSelf)
+            return;
 #if UNITY_WEBGL
+
             webStartPanel.SetActive(false);
             Canvas.ForceUpdateCanvases();
 #endif
