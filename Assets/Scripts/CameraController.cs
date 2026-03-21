@@ -1,25 +1,29 @@
-﻿using UnityEngine;
+﻿using System;
+using System.Runtime.InteropServices.WindowsRuntime;
+using UnityEngine;
+using UnityEngine.UIElements;
 
 public class CameraController : MonoBehaviour
 {
     [Header("Movement Settings")]
     public float panSpeed = 20f;         // (W, A, S, D)
     public float zoomSpeed = 10f;        // (C, X)
-    public float skyRotationSpeed = 15f; // (Q, E)
+    //Rotation Q, E in skyContainer
 
     [Header("Zoom Limits")]
     public float minZoom = 2f;
     public float maxZoom = 150f;
 
     [Header("References")]
-    public Transform skyContainer;
+    public StarContainer skyContainer;
 
     private Camera cam;
 
     // Reset vars
     private Vector3 initialPosition;
     private float initialZoom;
-    private Quaternion initialSkyRotation;
+
+    private float initialRotationH;
 
     void Start()
     {
@@ -29,13 +33,9 @@ public class CameraController : MonoBehaviour
         cam.orthographic = true;
         transform.position = new Vector3(0f, 0f, -10f);
 
-        // Save state for reset (R)
-        initialPosition = transform.position;
-        initialZoom = cam.orthographicSize;
-
         if (skyContainer != null)
         {
-            initialSkyRotation = skyContainer.rotation;
+            InitSpace();
         }
     }
 
@@ -58,9 +58,9 @@ public class CameraController : MonoBehaviour
         if (skyContainer != null)
         {
             if (Input.GetKey(KeyCode.Q)) // ACW
-                skyContainer.Rotate(Vector3.forward, skyRotationSpeed * Time.deltaTime);
+                skyContainer.ApplyRotation(Time.deltaTime);
             if (Input.GetKey(KeyCode.E)) // ACW
-                skyContainer.Rotate(Vector3.forward, -skyRotationSpeed * Time.deltaTime);
+                skyContainer.ApplyRotation(-Time.deltaTime);
         }
 
         // --- 3. ZOOM (C, X) ---
@@ -86,7 +86,16 @@ public class CameraController : MonoBehaviour
 
         if (skyContainer != null)
         {
-            skyContainer.rotation = initialSkyRotation;
+            skyContainer.ApplyReset();
         }
+    }
+
+    void InitSpace()
+    {
+        // Save state for reset (R)
+        initialPosition = transform.position;
+        initialZoom = cam.orthographicSize;
+
+        skyContainer.Initialize();
     }
 }

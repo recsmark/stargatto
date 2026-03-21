@@ -7,6 +7,7 @@ public class SkyInteractionManager : MonoBehaviour
 {
     [Header("Riferimenti")]
     public StarGenerator starGenerator;
+    public StarContainer skyContainer;
     public Camera mainCamera;
 
     [Header("GameUI")]
@@ -148,10 +149,12 @@ public class SkyInteractionManager : MonoBehaviour
 
     public void updateGameUI()
     {
-        //TimeSpan deltaTime = 4f;
-        float deltaTime = 3.4f;
-        DateTime currentTime = System.DateTime.UtcNow.AddHours(deltaTime);
-        upperText.text = currentTime.ToString(); 
+        float rotationH = skyContainer.SkyRotation; //gives delta between current and UTC (+ sky rotation)
+        DateTime currentTime = System.DateTime.UtcNow.AddHours(rotationH); //current time = UTC + rotation
+        upperText.text = currentTime.ToString();
+        if (currentLanguage == AppLanguage.Italian)
+            upperText.text += " " + TimeZoneInfo.Local.StandardName; //can't translate
+        upperText.text += " @ Long. " + skyContainer.localLongitude.ToString() + "°"; 
         
         /*ParseExact(
                                "ddd, dd MMM yyyy HH:mm:ss 'GMT'",
