@@ -1,6 +1,8 @@
-﻿using UnityEngine;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq; // needed for search
+using System.Runtime.InteropServices.WindowsRuntime;
+using UnityEngine;
 
 public class StarGenerator : MonoBehaviour
 {
@@ -43,6 +45,7 @@ public class StarGenerator : MonoBehaviour
     public int totalConstellations;
     public int totalStars;
 
+
     // Colors
     private class ColorTable
     {
@@ -78,6 +81,7 @@ public class StarGenerator : MonoBehaviour
         };
 
         // Color Stellarium have poor reds ...
+        // https://www.celestialprogramming.com/articles/starColors/starColors.html
         // https://www.celestialprogramming.com/articles/starColors/ColorStellarium.js
 
         //another color table by AI
@@ -91,7 +95,7 @@ public class StarGenerator : MonoBehaviour
             new bvColor(  2.0f, 1.0f, 0.5f, 0.5f)
         };
 
-        public Color bvToColor(float bvIndex, bvColor[] colorTable)
+        public Color bvToColorByTable(float bvIndex, bvColor[] colorTable)
         {
             //DECIDE which colortable to use
             for (int ind = 0; ind < colorTable.Length; ind++)
@@ -104,8 +108,94 @@ public class StarGenerator : MonoBehaviour
         }
     }
 
+    public class ColorHelland
+    {
+        //https://www.celestialprogramming.com/articles/starColors/ColorHelland.js
+
+        //Greg Miller (gmiller@gregmiller.net) 2025
+        //Released as public domain
+        //www.celestialprogramming.com
+
+        /*
+        Based on algorithm by Tanner Helland
+        https://tannerhelland.com/2012/09/18/convert-temperature-rgb-algorithm-code.html
+        */
+
+        //Revised in C#for this project
+        private float bvToTemperature(float bv)
+        {
+            // Convert B-V color index to an approximate temperature (Kelvin)
+            return 4600f * ((1f / (0.92f * bv + 1.7f)) + (1f / (0.92f * bv + 0.62f)));
+        }
+
+        private void temperatureToRGB(float temp, float[] retArray)
+        {
+            // Convert temperature (Kelvin) to an approximate RGB color
+            double newTemp = temp / 100.0f;
+            double r, g, b;
+
+            // Red
+            if (newTemp <= 66f)
+            {
+                r = 255f;
+            }
+            else
+            {
+                r = 329.698727446f * (Math.Pow(newTemp - 60f, -0.1332047592f));
+                r = Math.Clamp(r, 0f, 255f);
+            }
+
+            // Green
+            if (newTemp <= 66f)
+            {
+                g = 99.4708025861f * Math.Log(newTemp) - 161.1195681661f;
+            }
+            else
+            {
+                g = 288.1221695283f * Math.Pow(newTemp - 60f, -0.0755148492f);
+            }
+            g = Math.Clamp(g, 0f, 255f);
+
+            // Blue
+            if (newTemp >= 66f)
+            {
+                b = 255f;
+            }
+            else if (newTemp <= 19f)
+            {
+                b = 0f;
+            }
+            else
+            {
+                b = 138.5177312231f * Math.Log(newTemp - 10f) - 305.0447927307f;
+                b = Math.Clamp(b, 0f, 255f);
+            }
+
+            retArray[0] = (float)Math.Round(r);
+            retArray[1] = (float)Math.Round(g);
+            retArray[2] = (float)Math.Round(b);
+        }
+
+        private void bvToRGB(float bv, float[] retArray)
+        {
+            // Convert a B-V color index to an RGB color
+            float temp = bvToTemperature(bv);
+            temperatureToRGB(temp, retArray);
+        }
+
+        public Color bv2rgb(float bv)
+        {
+            float scale = 255f;
+            float[] retArray = new float[3];
+            bvToRGB(bv, retArray);
+            Color color = new Color(retArray[0]/scale, retArray[1]/scale, retArray[2]/scale);
+            return color;
+        }
+    }
+
     private bool skyGenerated = false;
     private ColorTable myPalette = new ColorTable();
+    private ColorHelland myPaletteHelland = new ColorHelland();
 
     private float minStarRadius = 0.1f; //default min value
     private float maxStarRadius = 1.0f; //default max value
@@ -349,7 +439,10 @@ public class StarGenerator : MonoBehaviour
     Color CalculateStarColor(float bvIndex)
     {
         //choose wich color table with the 2nd argument
-        return myPalette.bvToColor(bvIndex, myPalette.wikiBvColors);
+        //return myPalette.bvToColorByTable(bvIndex, myPalette.wikiBvColors);
+
+        //new: use Helland Algorithm wich includes temperature  by BV index
+        return myPaletteHelland.bv2rgb(bvIndex);
     }
 
     float CalculateStarScale(float magnitude)
