@@ -366,11 +366,12 @@ public class UIManager : MonoBehaviour
         escapeText.text = "Premi ESC per chiudere";
 
         cmndsText.text =
-            "W, A, S, D - Ruota la visuale\n" +
-            "Q, E - Fai scorrere il tempo (Ruota il cielo)\n" +
-            "C, X - Zoom Avanti e Indietro\n" +
-            "I Attiva/Disattiva Inquinamento luminoso\n" +
-            "R - Resetta la vista\n";
+            "W, A, S, D: Ruota la visuale\n" +
+            "Q, E: Fai scorrere il tempo (Ruota il cielo)\n" +
+            "C, X: Zoom Avanti e Indietro\n" +
+            "Rotella del mouse: Zoom Avanti e Indietro\n" +
+            "I: Inquinamento luminoso ON/OFF\n" +
+            "R: Resetta la vista\n";
 
         if (skyIteractionManager != null)
             skyIteractionManager.SetCurrentLanguage(currentLanguage);
@@ -388,11 +389,11 @@ public class UIManager : MonoBehaviour
         escapeText.text = "Press ESC to close";
 
         cmndsText.text =
-            "W, A, S, D - Rotate view\n" +
-            "Q, E - Pass time (Rotate sky)\n" +
-            "C, X - Zoom In and Out\n" +
-            "I Toggle light pollution\n" +
-            "R - Reset view\n";
+            "W, A, S, D: Rotate view\n" +
+            "Q, E: Pass time (Rotate sky)\n" +
+            "C, X, Mouse Wheel: Zoom In and Out\n" +
+            "I: Toggle light pollution\n" +
+            "R: Reset view\n";
 
         if (skyIteractionManager != null)
             skyIteractionManager.SetCurrentLanguage(currentLanguage);

@@ -8,6 +8,7 @@ public class CameraController : MonoBehaviour
     [Header("Movement Settings")]
     public float panSpeed = 20f;         // (W, A, S, D)
     public float zoomSpeed = 10f;        // (C, X)
+    public float wheelSpeed = 10f;       // Mouse Wheel
     //Rotation Q, E in skyContainer
 
     [Header("Zoom Limits")]
@@ -63,11 +64,22 @@ public class CameraController : MonoBehaviour
                 skyContainer.ApplyRotation(-Time.deltaTime);
         }
 
-        // --- 3. ZOOM (C, X) ---
-        if (Input.GetKey(KeyCode.C))
-            cam.orthographicSize -= zoomSpeed * Time.deltaTime;
-        if (Input.GetKey(KeyCode.X))
-            cam.orthographicSize += zoomSpeed * Time.deltaTime;
+        float scrollInput = Input.GetAxis("Mouse ScrollWheel");
+
+        // // --- 3.ZOOM (Mouse Wheel) ---
+        if (scrollInput != 0f)
+        {
+            cam.orthographicSize -= scrollInput * wheelSpeed; // -= : wheel fwd = zoom in
+        }
+        else
+        {
+            // --- 3.ZOOM(C, X) ---
+            if (Input.GetKey(KeyCode.C))
+                cam.orthographicSize -= zoomSpeed * Time.deltaTime;
+            if (Input.GetKey(KeyCode.X))
+                cam.orthographicSize += zoomSpeed * Time.deltaTime;
+        }
+
 
         // Zoom limit
         cam.orthographicSize = Mathf.Clamp(cam.orthographicSize, minZoom, maxZoom);
