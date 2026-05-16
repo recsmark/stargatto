@@ -87,7 +87,7 @@ public class StarContainer : MonoBehaviour
     private float _initialDeltaRotationHour = 0;
     private float _initialRotationHour = 0;
     private const float skyRotationSpeed = 15f; //[deg/hour]
-    private const float initLongitude = 14.6f; //longitude of Costigiola
+    private const float initLongitude = 14.6f; //longitude of Costigiola https://costigiola.it/dove-siamo/
     public float localLongitude => initLongitude;
 
     // Example of complete setter-getter structure
