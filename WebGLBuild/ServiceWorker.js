@@ -1,4 +1,4 @@
-const cacheName = "MR-ASTROGATTO-0.1";
+const cacheName = "MR-STARGATTO-0.3";
 const contentToCache = [
     "Build/WebGLBuild.loader.js",
     "Build/WebGLBuild.framework.js",
