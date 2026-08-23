@@ -1068,13 +1068,13 @@ RectTransform:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 660124036}
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalRotation: {x: 0, y: 1, z: 0, w: 0}
   m_LocalPosition: {x: 0, y: 0, z: -1}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 426256406}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 180, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
   m_AnchoredPosition: {x: -540, y: -335}
@@ -1100,7 +1100,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 3286163911610860551, guid: d7101515ebeaab8468ff3937c50dd08c,
+  m_Sprite: {fileID: 3286163911610860551, guid: d0462828f734431419a942bf089e5f93,
     type: 3}
   m_PreserveAspect: 0
 --- !u!222 &660124039
@@ -2792,7 +2792,7 @@ MonoBehaviour:
   currentLanguage: 0
   audioPlayer: {fileID: 922361040}
   menuMusic: {fileID: 8300000, guid: b5fd27adf3733b3439b4a0b36c09fc59, type: 3}
-  skyMusic: {fileID: 8300000, guid: 9da74a1fd8721cd4ca71d9f74aa2a8c0, type: 3}
+  skyMusic: {fileID: 8300000, guid: 0f172f417dad2f3479bfa59b5ab9e081, type: 3}
   videoPlayer: {fileID: 2063828807}
   videoBackgroundUI: {fileID: 2063828805}
   fadeDuration: 3
@@ -3746,7 +3746,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 3286163911610860551, guid: d7101515ebeaab8468ff3937c50dd08c,
+  m_Sprite: {fileID: 3286163911610860551, guid: d0462828f734431419a942bf089e5f93,
     type: 3}
   m_PreserveAspect: 0
 --- !u!222 &1738786040

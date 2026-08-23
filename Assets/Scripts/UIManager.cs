@@ -324,13 +324,16 @@ public class UIManager : MonoBehaviour
             // Credit text
             string credits = "STARGATTO v" + gameVersion +
                 "\n<size=40%>INTERACTIVE ASTRONOMIC GAME\n" +
-                "Find constellation and learn about our sky\n\n" + 
+                "Find constellations and learn about our sky\n\n" + 
                 "CC BY-NC-ND 2026\n" +
                 "Programming: Marco R.\n" +
                 "Scientific Advisors: Dr. Elena S., Marco R.\n\n" +
                 "PER AZIMUT AD ASTRA\n\n" + 
                 "Menu music: \"Beyond the Gate - Inspired by Stargate\" created by Luis_Humanoide\n" +
-                "Background music: ---\n";
+                "Background music: \"Space Ambient\"\n created by SolarFlex\n" +
+                "Star reference DB: HYG 4.2 from AstroNexus.com \n" +
+                "Constellation lines reference: file by MarcvdSluys\n";
+                ;
 
             creditText.text = credits.ToUpper();
             creditText.alignment = TextAlignmentOptions.Left;
