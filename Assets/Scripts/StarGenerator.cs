@@ -248,7 +248,8 @@ public class StarGenerator : MonoBehaviour
         float denominator = 1.0f + z;
         if (denominator < 0.001f) return;
 
-        float projectedX = x / denominator;
+        // -x adjust the perspective from the main camera
+        float projectedX = -x / denominator;
         float projectedY = y / denominator;
 
         Vector3 finalPosition = new Vector3(projectedX * projectionScale, projectedY * projectionScale, 0f);
