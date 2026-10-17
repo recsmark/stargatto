@@ -16,6 +16,7 @@ public class StarData
     public float ra;
     public float dec;
     public float mag;
+    public float dist;
     public float colorIndex;
 }
 
@@ -61,6 +62,7 @@ public class StarDatabase : MonoBehaviour
         const string raStr = "RA"; //right ascension for epoch and equinox 2000.0
         const string decStr = "Dec"; //declination for epoch and equinox 2000.0
         const string magStr = "Mag"; //apparent magnitude
+        const string distStr = "dist"; //distance ([pc] from catalogue)
         const string colStr = "CI"; //color index when known
         const string conStr = "con"; //std const abbreviation
 
@@ -72,6 +74,7 @@ public class StarDatabase : MonoBehaviour
             { raStr, -1 },
             { decStr, -1 },
             { magStr, -1 },
+            { distStr, -1 },
             { colStr, -1 },
             { conStr, -1 }
         };
@@ -82,6 +85,7 @@ public class StarDatabase : MonoBehaviour
         public int ra => indices[raStr];
         public int dec => indices[decStr];
         public int mag => indices[magStr];
+        public int dist => indices[distStr];
         public int color => indices[colStr];
         public int con => indices[conStr];
 
@@ -183,21 +187,30 @@ public class StarDatabase : MonoBehaviour
         bool loaded = true;
         datFilePath = Path.Combine(Application.streamingAssetsPath, datFileName);
         datFilePath = datFilePath.Replace("\\", "/");
-#if (!UNITY_WEBGL || UNITY_EDITOR) //avoid csv reading when deploy as WEBGL
+//avoid csv reading when deploy as WEBGL + always load DB from csv when in editor to avoid mismatches
+#if (!UNITY_WEBGL || UNITY_EDITOR)
         {
-            Debug.Log("File "+ datFileName + " non trovato. Generazione dai CSV...");
-            loaded = ReadFromCsvAndCreateDat();
+            if (!File.Exists(datFilePath))
+            {
+                CustomLogger.Log("File " + datFileName + " non trovato. Generazione dai CSV...");
+            }
+            else
+            {
+                CustomLogger.Log("Sovrascrivo DB. Generazione dai CSV...");
+            }
+
+                loaded = ReadFromCsvAndCreateDat();
             if (loaded)
                 StartCoroutine(LoadDatabaseRoutine());
         }
 #else
-        //Assuming .dat present
-        StartCoroutine(LoadDatabaseRoutine());
+            //Assuming .dat present
+            StartCoroutine(LoadDatabaseRoutine());
 #endif
 
         if (!loaded)
         {
-            Debug.LogWarning("Impossibile avviare la simulazione: il database non è pronto.");
+            CustomLogger.LogWarning("Impossibile avviare la simulazione: il database non è pronto.");
         }
     }
 
@@ -218,6 +231,7 @@ public class StarDatabase : MonoBehaviour
             {
                 // 1. Read star DB
                 int starCount = reader.ReadInt32();
+                CustomLogger.Log($"[DB-R] n° stelle: {starCount}");
                 for (int i = 0; i < starCount; i++)
                 {
                     StarData star = new StarData();
@@ -226,27 +240,32 @@ public class StarDatabase : MonoBehaviour
                     star.ra = reader.ReadSingle();
                     star.dec = reader.ReadSingle();
                     star.mag = reader.ReadSingle();
+                    star.dist = reader.ReadSingle();
                     star.colorIndex = reader.ReadSingle();
 
                     starDict.Add(star.id, star);
                 }
+                CustomLogger.Log($"[DB-R] lettura stelle: {starDict.Count}");
 
                 // 2. Read constellation DB
                 int constCount = reader.ReadInt32();
+                CustomLogger.Log($"[DB-R] n° costellazioni: {constCount}");
                 for (int i = 0; i < constCount; i++)
                 {
                     ConstellationInfo info = new ConstellationInfo();
                     info.id = ObfuscateString(reader.ReadString());
                     info.itaName = ObfuscateString(reader.ReadString());
                     info.engName = ObfuscateString(reader.ReadString());
-                    info.meaning = ObfuscateString(reader.ReadString());
-                    info.hemisphere = ObfuscateString(reader.ReadString());
+                    info.meaning = ObfuscateString(reader.ReadString(), xorKey);
+                    info.hemisphere = ObfuscateString(reader.ReadString(), xorKey);
 
                     constellationDict.Add(info.id, info);
                 }
+                CustomLogger.Log($"[DB-R] lettura costellazioni: {constellationDict.Count}");
 
                 // 3. Read lines DB
                 int linkCount = reader.ReadInt32();
+                CustomLogger.Log($"[DB-R] n° linee: {linkCount}");
                 for (int i = 0; i < linkCount; i++)
                 {
                     ConstellationLink link = new ConstellationLink();
@@ -256,16 +275,18 @@ public class StarDatabase : MonoBehaviour
 
                     linkList.Add(link);
                 }
+                CustomLogger.Log($"[DB-R] lettura linee: {linkList.Count}");
+
             }
 
             isLoaded = true;
             IsReady = true;
-            Debug.Log($"Caricamento .DAT completato: {starDict.Count} stelle, {constellationDict.Count} costellazioni, {linkList.Count} linee.");
+            CustomLogger.Log($"Caricamento .DAT completato: {starDict.Count} stelle, {constellationDict.Count} costellazioni, {linkList.Count} linee.");
             return true;
         }
         catch (System.Exception e)
         {
-            Debug.LogError("Errore durante il parsing dei dati: " + e.Message);
+            CustomLogger.LogError("Errore durante il parsing dei dati: " + e.Message);
             return false;
         }
     }
@@ -284,7 +305,7 @@ public class StarDatabase : MonoBehaviour
         // Check CSV exist
         if (!File.Exists(starsCsvPath) || !File.Exists(constDataCsvPath) || !File.Exists(constLinksCsvPath))
         {
-            Debug.LogError("Impossibile trovare i file CSV necessari in StreamingAssets!");
+            CustomLogger.LogError("Impossibile trovare i file CSV necessari in StreamingAssets!");
             return false;
         }
 
@@ -296,7 +317,7 @@ public class StarDatabase : MonoBehaviour
 
         if (!constIdx.IsValid())
         {
-            Debug.LogError("Formato " + constIdx.fileName + " non valido: manca " + constIdx.keyNotValid());
+            CustomLogger.LogError("Formato " + constIdx.fileName + " non valido: manca " + constIdx.keyNotValid());
             return false;
         }
 
@@ -309,14 +330,14 @@ public class StarDatabase : MonoBehaviour
                 info.id = ObfuscateString(data[constIdx.id].ToUpper());
                 if (constellationDict.ContainsKey(info.id))
                 {
-                    Debug.Log("Costellazione con id " + data[constIdx.id].ToUpper() + " duplicata");
+                    CustomLogger.Log("Costellazione con id " + data[constIdx.id].ToUpper() + " duplicata");
                     continue;
                 }
 
                 info.itaName = ObfuscateString(data[constIdx.itaName]);
                 info.engName = ObfuscateString(data[constIdx.engName]);
-                info.meaning = ObfuscateString(data[constIdx.mean]);
-                info.hemisphere = ObfuscateString(data[constIdx.hemisph]);
+                info.meaning = ObfuscateString(data[constIdx.mean], xorKey);
+                info.hemisphere = ObfuscateString(data[constIdx.hemisph], xorKey);
                 constellationDict.Add(info.id, info);
             }
         }
@@ -329,7 +350,7 @@ public class StarDatabase : MonoBehaviour
 
         if (!starIdx.IsValid())
         {
-            Debug.LogError("Formato " + starIdx.fileName + " non valido: manca " + starIdx.keyNotValid());
+            CustomLogger.LogError("Formato " + starIdx.fileName + " non valido: manca " + starIdx.keyNotValid());
             return false;
         }
 
@@ -354,13 +375,14 @@ public class StarDatabase : MonoBehaviour
                 star.ra = float.Parse(data[starIdx.ra], CultureInfo.InvariantCulture); //InvariantCulture set -> . as decimal for all users
                 star.dec = float.Parse(data[starIdx.dec], CultureInfo.InvariantCulture);
                 star.mag = float.Parse(data[starIdx.mag], CultureInfo.InvariantCulture);
+                star.dist = float.Parse(data[starIdx.dist], CultureInfo.InvariantCulture);
                 star.colorIndex = float.Parse(data[starIdx.color], CultureInfo.InvariantCulture);
                 starDict.Add(star.id, star);
             }                
         }
 
         if (missedStars > 0)
-            Debug.LogWarning("Massimo di stelle raggiunto a " + maxStars.ToString() + " mancherebbero " + missedStars.ToString());
+            CustomLogger.LogWarning("Massimo di stelle raggiunto a " + maxStars.ToString() + " mancherebbero " + missedStars.ToString());
 
         // 3. Parse Constellation Links CSV
         string[] linkLines = File.ReadAllLines(constLinksCsvPath);
@@ -370,7 +392,7 @@ public class StarDatabase : MonoBehaviour
 
         if (!linkIdx.IsValid())
         {
-            Debug.LogError("Formato " + linkIdx.fileName + " non valido: manca " + linkIdx.keyNotValid());
+            CustomLogger.LogError("Formato " + linkIdx.fileName + " non valido: manca " + linkIdx.keyNotValid());
             return false;
         }
 
@@ -386,6 +408,7 @@ public class StarDatabase : MonoBehaviour
                 string cName = ObfuscateString(data[linkIdx.id].ToUpper());
 #if UNITY_EDITOR
                 string altName = ObfuscateString(cName); //debug only
+                //cName = altName;
 #endif
                 if (!constellationDict.ContainsKey(cName)) //filter by constellation
                     continue; //next line
@@ -431,6 +454,7 @@ public class StarDatabase : MonoBehaviour
         {
             // Stars
             writer.Write(starDict.Count);
+            CustomLogger.Log($"[DB-W] scrittura stelle: {starDict.Count}");
             foreach (var kvp in starDict)
             {
                 writer.Write(kvp.Value.id);
@@ -438,11 +462,13 @@ public class StarDatabase : MonoBehaviour
                 writer.Write(kvp.Value.ra);
                 writer.Write(kvp.Value.dec);
                 writer.Write(kvp.Value.mag);
+                writer.Write(kvp.Value.dist);
                 writer.Write(kvp.Value.colorIndex);
             }
 
             // Contsellation info
             writer.Write(constellationDict.Count);
+            CustomLogger.Log($"[DB-W] scrittura costellazioni: {constellationDict.Count}");
             foreach (var kvp in constellationDict)
             {
                 writer.Write(kvp.Value.id);
@@ -454,6 +480,7 @@ public class StarDatabase : MonoBehaviour
 
             // Constellation lines
             writer.Write(linkList.Count);
+            CustomLogger.Log($"[DB-W] scrittura linee: {linkList.Count}");
             foreach (var link in linkList)
             {
                 writer.Write(link.constellationId);
@@ -463,7 +490,7 @@ public class StarDatabase : MonoBehaviour
         }
 
         isLoaded = true;
-        Debug.Log($"File " + datFileName + " generato con successo dai CSV! ({starDict.Count} stelle)");
+        CustomLogger.Log($"File " + datFileName + " generato con successo dai CSV! ({starDict.Count} stelle)");
 
         return isLoaded;
     }
@@ -483,10 +510,12 @@ public class StarDatabase : MonoBehaviour
     }
 
     // Symmetric XOR function to encode/decode string in bin file
-    private string ObfuscateString(string input, string alternative = "")
+    private string ObfuscateString(string input, int key = 0)
     {
         //int a;
         if (string.IsNullOrEmpty(input))
+            return input;
+        if (key == 0)
             return input;
 
         //if (input == "\"\"")
@@ -496,7 +525,7 @@ public class StarDatabase : MonoBehaviour
         for (int i = 0; i < chars.Length; i++)
         {
             // Apply to all chars XOR with key
-            chars[i] = (char)(chars[i] ^ xorKey);
+            chars[i] = (char)(chars[i] ^ key);
         }
         return new string(chars);
     }
@@ -546,7 +575,7 @@ public class StarDatabase : MonoBehaviour
 
             if (uwr.result != UnityWebRequest.Result.Success)
             {
-                Debug.LogError("Errore critico: Impossibile caricare stars.dat - " + uwr.error);
+                CustomLogger.LogError("Errore critico: Impossibile caricare stars.dat - " + uwr.error);
                 IsReady = false;
             }
             else
@@ -584,12 +613,16 @@ public class StarDatabase : MonoBehaviour
 
             byte[] rawData = System.IO.File.ReadAllBytes(datFilePath);
             IsReady = LoadFromDat(rawData);
+            if (IsReady)
+                CustomLogger.Log("DB Read: OK");
+            else
+                CustomLogger.Log("DB Read: FAIL");
 
             rawData = null;
         }
         catch (System.Exception e)
         {
-            Debug.LogError("Errore lettura locale: " + e.Message);
+            CustomLogger.LogError("Errore lettura locale: " + e.Message);
             IsReady = false;
         }
 

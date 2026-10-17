@@ -3,6 +3,7 @@ using TMPro; // needed for TextMeshPro
 using UnityEngine;
 using UnityEngine.Video;
 using UnityEngine.UI; // needed for slider
+
 public enum AppLanguage
 {
     Italian,
@@ -327,7 +328,7 @@ public class UIManager : MonoBehaviour
                 "Find constellations and learn about our sky\n\n" + 
                 "CC BY-NC-ND 2026\n" +
                 "Programming: Marco R.\n" +
-                "Scientific Advisors: Dr. Elena S., Marco R.\n\n" +
+                "Scientific Advisors: Elena S. Ph.D., Marco R.\n\n" +
                 "PER AZIMUT AD ASTRA\n\n" + 
                 "Menu music: \"Beyond the Gate - Inspired by Stargate\" created by Luis_Humanoide\n" +
                 "Background music: \"Space Ambient\"\n created by SolarFlex\n" +
@@ -369,7 +370,7 @@ public class UIManager : MonoBehaviour
         escapeText.text = "Premi ESC per chiudere";
 
         cmndsText.text =
-            "W, A, S, D: Ruota la visuale\n" +
+            "W, A, S, D: Muovi la visuale\n" +
             "Q, E: Fai scorrere il tempo (Ruota il cielo)\n" +
             "C, X: Zoom Avanti e Indietro\n" +
             "Rotella del mouse: Zoom Avanti e Indietro\n" +
@@ -392,7 +393,7 @@ public class UIManager : MonoBehaviour
         escapeText.text = "Press ESC to close";
 
         cmndsText.text =
-            "W, A, S, D: Rotate view\n" +
+            "W, A, S, D: Move view\n" +
             "Q, E: Pass time (Rotate sky)\n" +
             "C, X, Mouse Wheel: Zoom In and Out\n" +
             "I: Toggle light pollution\n" +
@@ -446,7 +447,7 @@ public class UIManager : MonoBehaviour
     // --- QUIT FUNCTION ---
     public void QuitApplication()
     {
-        UnityEngine.Debug.Log("Chiusura dell'applicazione...");
+        CustomLogger.Log("Chiusura dell'applicazione...");
 
         // QUIT .exe file
         Application.Quit();

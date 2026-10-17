@@ -200,7 +200,7 @@ public class StarGenerator : MonoBehaviour
     private float minStarRadius = 0.1f; //default min value
     private float maxStarRadius = 1.0f; //default max value
 
-    private float shrinkMargin = 1f; //for not overlap star and lines collider
+    private float shrinkMargin = 0.8f; //for not overlap star and lines collider
 
     public bool skyRevealed => reveal;
 
@@ -209,7 +209,7 @@ public class StarGenerator : MonoBehaviour
         // wait for DB
         if (database == null)
         {
-            Debug.LogError("StarDatabase non collegato o non caricato!");
+            CustomLogger.LogError("StarDatabase non collegato o non caricato!");
         }
     }
 
@@ -230,7 +230,7 @@ public class StarGenerator : MonoBehaviour
             StarData star = kvp.Value;
             GenerateProjectedStar(star.id, star.name, star.ra, star.dec, star.colorIndex, star.mag);
         }
-        Debug.Log($"Generazione completata: {instantiatedStars.Count} stelle create a schermo.");
+        CustomLogger.Log($"Generazione completata: {instantiatedStars.Count} stelle create a schermo.");
 
         totalConstellations = database.constellationDict.Count;
         totalStars = database.starDict.Count;
@@ -245,7 +245,7 @@ public class StarGenerator : MonoBehaviour
         float y = Mathf.Cos(decRad) * Mathf.Sin(raRad);
         float z = Mathf.Sin(decRad);
 
-        float denominator = 1.0f + z;
+        float denominator = 1.0f + z; //for the S emishpere, use 1 - z!
         if (denominator < 0.001f) return;
 
         // -x adjust the perspective from the main camera
@@ -270,7 +270,7 @@ public class StarGenerator : MonoBehaviour
         {
             starRenderer.sortingOrder = 1; //the greater the nearer
             starRenderer.color = CalculateStarColor(bvIndex);
-            col.radius = starRenderer.bounds.extents.x;  //CalculateStarRadius(magnitude, starRenderer);
+            col.radius = 2 * starRenderer.bounds.extents.x;  //CalculateStarRadius(magnitude, starRenderer);
         }
        
         instantiatedStars.Add(starId, newStar);
@@ -398,7 +398,7 @@ public class StarGenerator : MonoBehaviour
             }
         }
 
-        Debug.Log($"Inquinamento luminoso: {(isPolluted ? "ATTIVO" : "DISATTIVO")}");
+        CustomLogger.Log($"Inquinamento luminoso: {(isPolluted ? "ATTIVO" : "DISATTIVO")}");
     }
 
 

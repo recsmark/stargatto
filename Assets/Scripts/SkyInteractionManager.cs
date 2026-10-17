@@ -18,6 +18,7 @@ public class SkyInteractionManager : MonoBehaviour
     public RectTransform tooltipPanel;
     public TextMeshProUGUI tooltipText;
     public Vector2 tooltipOffset = new Vector2(15f, -15f); // Cursor offset
+    private const float PC_TO_LYEAR = 3.26156f; //convert parsec to light years
 
     private string currentHoveredConstellation = "";
     private AppLanguage currentLanguage = AppLanguage.Italian; //see UIManager
@@ -32,12 +33,37 @@ public class SkyInteractionManager : MonoBehaviour
         Vector2 mousePosition = mainCamera.ScreenToWorldPoint(Input.mousePosition);
 
         // 3. Calculat the hit with 2D "ray"
-        Collider2D hit = Physics2D.OverlapPoint(mousePosition);
+        Collider2D[] hits = Physics2D.OverlapPointAll(mousePosition);
+        //Collider2D oldHit = Physics2D.OverlapPoint(mousePosition);
+        Collider2D priorityHit = null;
 
-        if (hit != null)
+        if (hits.Length > 0)
         {
-            string objName = hit.gameObject.name;
-            //Debug.Log($"[RAYCAST] Ho toccato: {objName}");
+            // gives priority to star colliders (CircleCollider2D)
+            foreach (Collider2D col in hits)
+            {
+                if (col is CircleCollider2D)
+                {
+                    priorityHit = col;
+                    break;
+                }
+            }
+
+            // take the first hit
+            if (priorityHit == null)
+            {
+                priorityHit = hits[0];
+            }
+        }
+        //else if (oldHit != null)
+        //{
+        //    priorityHit = oldHit;
+        //}
+
+        if (priorityHit != null)
+        {
+            string objName = priorityHit.gameObject.name;
+            //CustomLogger.Log($"[RAYCAST] Ho toccato: {objName}");
 
             if (objName.StartsWith("Star_"))
             {
@@ -54,7 +80,10 @@ public class SkyInteractionManager : MonoBehaviour
 #endif
                     if (!string.IsNullOrEmpty(starName))
                     {
-                        ShowTooltip(starName);
+                        float ly = PC_TO_LYEAR * starGenerator.database.starDict[starId].dist;
+                        ShowStarTooltip(starName,
+                                        starGenerator.database.starDict[starId].mag.ToString("0.00"),
+                                        ly.ToString("0.00"));
                     }
                 }
             }
@@ -73,6 +102,10 @@ public class SkyInteractionManager : MonoBehaviour
                         string fullName = currentLanguage == AppLanguage.Italian ? starGenerator.database.constellationDict[constId].itaName
                              : starGenerator.database.constellationDict[constId].itaName;
                         ShowTooltip(fullName, true);
+                    }
+                    else
+                    {
+                        CustomLogger.Log($"[DB] costellazione mancante: {constId}");
                     }
                 }
 
@@ -111,12 +144,25 @@ public class SkyInteractionManager : MonoBehaviour
     }
 
     // --- UTILITY METHODS ---
+    private void ShowStarTooltip(string name, string mag, string distance)
+    {
+        string textToShow = name + "\nm " + mag + "\n" + distance;
+
+        if (currentLanguage == AppLanguage.Italian)
+            textToShow += " a.l.";
+        else
+            textToShow += " ly";
+
+        ShowTooltip(textToShow);
+    }
+
     private void ShowTooltip(string textToShow, bool isConstellation = false)
     {
         tooltipPanel.gameObject.SetActive(true);
+        tooltipText.fontSize = 24;
         if (isConstellation)
         {
-
+            tooltipText.fontSize = 36; //also use a debug point
         }
         tooltipText.text = textToShow;
 
@@ -137,7 +183,7 @@ public class SkyInteractionManager : MonoBehaviour
     public void OpenDetailsPanel(string targetId, string targetType)
     {
         // targetType can be "Star" or "Constellation"
-        Debug.Log($"[PLACEHOLDER] Apertura pannello dettagli per: {targetType} con ID: {targetId}");
+        CustomLogger.Log($"[PLACEHOLDER] Apertura pannello dettagli per: {targetType} con ID: {targetId}");
 
         // TODO: more detailed panels
     }
