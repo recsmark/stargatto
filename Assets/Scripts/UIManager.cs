@@ -1,8 +1,9 @@
 ﻿using System.Collections; //needed for music
 using TMPro; // needed for TextMeshPro
 using UnityEngine;
-using UnityEngine.Video;
 using UnityEngine.UI; // needed for slider
+using UnityEngine.Video;
+using UnityEngine.EventSystems; // needed for UI interaction
 
 public enum AppLanguage
 {
@@ -163,7 +164,6 @@ public class UIManager : MonoBehaviour
                 ToggleMenu(true);
             }
         }
-
 
         if (Input.GetKeyDown(KeyCode.Tab)) //Toggle Instructions (TAB)
         {
@@ -383,7 +383,7 @@ public class UIManager : MonoBehaviour
 
     public void SetLanguageEnglish()
     {
-        currentLanguage = AppLanguage.Italian;
+        currentLanguage = AppLanguage.English;
 
         titleText.text = "STARGAT<size=70%>TO\r\n" +
             "<size=30%>ASTRONOMIC GAME TO FIND (ALMOST) EVERY STAR IN THE SKY\n" +

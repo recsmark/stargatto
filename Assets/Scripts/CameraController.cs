@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Runtime.InteropServices.WindowsRuntime;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.UIElements;
 
 public class CameraController : MonoBehaviour
@@ -42,6 +43,14 @@ public class CameraController : MonoBehaviour
 
     void Update()
     {
+        //CustomLogger.Log("Pointer on UI: " + EventSystem.current.IsPointerOverGameObject());
+        if (EventSystem.current.IsPointerOverGameObject()) 
+        {
+            // ignore inputs
+            return; //TBD
+        }
+
+
         // --- 1. PANNING (W, A, S, D) ---
         float moveX = 0f;
         float moveY = 0f;
@@ -79,7 +88,6 @@ public class CameraController : MonoBehaviour
             if (Input.GetKey(KeyCode.X))
                 cam.orthographicSize += zoomSpeed * Time.deltaTime;
         }
-
 
         // Zoom limit
         cam.orthographicSize = Mathf.Clamp(cam.orthographicSize, minZoom, maxZoom);

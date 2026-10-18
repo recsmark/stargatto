@@ -10,26 +10,26 @@ public static class SiderealMath
     /// </summary>
     /// <param name="longitude">La longitudine in gradi (Es. 15f per il meridiano standard GMT+1)</param>
     /// <returns>Angolo in gradi (float) pronto da applicare all'asse di rotazione</returns>
-    public static float CalculateLocalSiderealAngle(float longitude)
+    public static float CalculateLocalSiderealAngle(float longitude, DateTime refUtcDate)
     {
         // 1. Convertiamo in UTC per avere uno standard assoluto rispetto all'Epoca J2000
-        DateTime localTime = DateTime.Now;
-        DateTime utcTime = DateTime.UtcNow;//localTime.ToUniversalTime();
+        DateTime localTime = DateTime.UtcNow;
+        DateTime utcTime = refUtcDate.Date + localTime.TimeOfDay;
 
         // 2. Troviamo i giorni trascorsi
         double daysSinceJ2000 = GetDaysSinceJ2000(utcTime);
 
         // 3. Calcoliamo il tempo di Greenwich
-        double gmst = CalculateGMST(daysSinceJ2000);
+        double gmst = CalculateGMST(daysSinceJ2000); //[deg]
 
         // 4. Applichiamo la correzione locale (Est è positivo, Ovest è negativo)
-        double lst = gmst + longitude;
+        double lst = (gmst + longitude) / 360 * 24; //local sidereal time
 
-        // 5. Normalizziamo l'angolo affinché sia sempre compreso tra 0 e 360
-        lst = lst % 360.0;
+        // 5. Normalize in range 0..24h
+        lst = lst % 24.0;
         if (lst < 0)
         {
-            lst += 360.0;
+            lst += 24.0;
         }
 
         return (float)lst;
@@ -87,8 +87,13 @@ public class StarContainer : MonoBehaviour
     private float _initialDeltaRotationHour = 0;
     private float _initialRotationHour = 0;
     private const float skyRotationSpeed = 15f; //[deg/hour]
-    private const float initLongitude = 14.6f; //longitude of Costigiola https://costigiola.it/dove-siamo/
+    //Lat/Lon of Costigiola https://costigiola.it/dove-siamo/
+    private const float initLatitude = 45.6f;  //[deg]
+    private const float initLongitude = 14.6f; //[deg]
+    public float localLatitude => initLatitude;
     public float localLongitude => initLongitude;
+
+    public DateValidator validator;
 
     // Example of complete setter-getter structure
     public float SkyRotation
@@ -117,12 +122,29 @@ public class StarContainer : MonoBehaviour
         */
     }
 
-    public void Initialize()
+    private void Apply(DateTime dateRef)
     {
-        _initialRotationHour = SiderealMath.CalculateLocalSiderealAngle(initLongitude) / 360f * 24f;
+        _initialRotationHour = SiderealMath.CalculateLocalSiderealAngle(localLongitude, dateRef);
         ApplyRotation(_initialRotationHour);
         initialSkyRotation = transform.rotation;
-        ApplyReset();
+    }
+
+    public void Initialize()
+    {
+        DateTime initDate = DateTime.UtcNow;
+        Apply(initDate);
+        validator.OnDateSuccessfullyValidated += SetNewDate;
+    }
+
+    public void SetNewDate()
+    {
+        DateTime dateRef = validator?.GetDate() ?? DateTime.UtcNow;
+        DateTime utcTime = DateTime.UtcNow;
+        DateTime utc = dateRef.Date + utcTime.TimeOfDay; //mix date from validator with current time
+        //transform.Rotate(Vector3.forward, -_deltaRotationHour);
+        transform.eulerAngles = new Vector3(0f, 0f, 0f);
+        _deltaRotationHour = 0; //set again to 0 to proper init
+        Apply(utc);
     }
 
     public void ApplyRotation(float deltaTime, float speed = skyRotationSpeed)
@@ -135,13 +157,6 @@ public class StarContainer : MonoBehaviour
 
     public void ApplyReset()
     {
-        DateTime utc = DateTime.UtcNow;
-        TimeSpan timeDifference = DateTime.Now - utc;
-        DateTime zero = DateTime.Parse("00:00");
-        TimeSpan hFromNoon = (utc - zero);
-        _deltaRotationHour = ((float)timeDifference.TotalHours);
-        _initialDeltaRotationHour = (float)hFromNoon.TotalHours;
-        _initialDeltaRotationHour %= 24f;
-        transform.rotation = initialSkyRotation;
+        SetNewDate(); //revisited reset
     }
 }

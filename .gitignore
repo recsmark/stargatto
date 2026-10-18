@@ -71,6 +71,7 @@ mono_crash.*
 *.csv.meta
 /WebGLBuild/index.html
 /Assets/StreamingAssets/*.dat*
+/DesktopBuilds/*
 
 # Builds
 *.apk
