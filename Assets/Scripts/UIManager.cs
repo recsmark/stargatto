@@ -254,7 +254,9 @@ public class UIManager : MonoBehaviour
             if (videoPlayer.isPlaying)
                 return; //nothing to do anymore
             // Seth dynamic path from StreamingAssets.           
-            string videoName = "star_loop1.mp4";
+            string videoName = "star_loop.webm"; //mp4 codec seems not fully compatible with Linux...
+            //remember to convert with VP8 with the following
+            //ffmpeg - i star_loop.mp4 - c:v libvpx -crf 10 - b:v 2M - c:a libvorbis star_loop.webm
             string videoPath = System.IO.Path.Combine(Application.streamingAssetsPath, videoName);
             videoPath = videoPath.Replace("\\", "/"); // avoid browser problems replacing "\\" with "/"
 
