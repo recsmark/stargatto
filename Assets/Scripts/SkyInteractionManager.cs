@@ -15,9 +15,10 @@ public class SkyInteractionManager : MonoBehaviour
     public TextMeshProUGUI bottomText;
 
     [Header("Tooltip UI")] // tooltip (Star/Constellation name)
-    public RectTransform tooltipPanel;
-    public TextMeshProUGUI tooltipText;
-    public Vector2 tooltipOffset = new Vector2(15f, -15f); // Cursor offset
+    public TooltipManager tooltip;
+    //public TextMeshProUGUI tooltipText;
+    //public Vector2 tooltipOffset = new Vector2(15f, -15f); // Cursor offset
+    
     private const float PC_TO_LYEAR = 3.26156f; //convert parsec to light years
 
     public DateValidator validator;
@@ -28,7 +29,7 @@ public class SkyInteractionManager : MonoBehaviour
     void Update()
     {
         // 1. Reset tooltip every frame
-        tooltipPanel.gameObject.SetActive(false);
+        tooltip.enable(false);
         string newHoveredConstellation = "";
 
         // 2. Convert mouse position
@@ -160,25 +161,10 @@ public class SkyInteractionManager : MonoBehaviour
 
     private void ShowTooltip(string textToShow, bool isConstellation = false)
     {
-        tooltipPanel.gameObject.SetActive(true);
-        tooltipText.fontSize = 24;
-        if (isConstellation)
-        {
-            tooltipText.fontSize = 36; //also use a debug point
-        }
-        tooltipText.text = textToShow;
-
-        // 1. Tooltip absolute position
-        Vector2 desiredPosition = (Vector2)Input.mousePosition + tooltipOffset;
-
-        float width = tooltipPanel.rect.width;
-        float height = tooltipPanel.rect.height;
-
-        // 3. SCREEN CLAMPING, then apply position
-        float clampedX = Mathf.Clamp(desiredPosition.x, width, Screen.width);
-        float clampedY = Mathf.Clamp(desiredPosition.y, height, Screen.height);
-
-        tooltipPanel.position = new Vector2(clampedX, clampedY);
+        //TBD double label?
+        tooltip.enable(true);
+        tooltip.setFontSize(isConstellation);
+        tooltip.setText(textToShow);
     }
 
     // Detail panel function TODO
