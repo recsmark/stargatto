@@ -69,8 +69,11 @@ mono_crash.*
 # Others
 *.csv
 *.csv.meta
+*.xlsx
+*.xlsx.meta
 /WebGLBuild/index.html
 /Assets/StreamingAssets/*.dat*
+/Assets/NotVersioned*
 /DesktopBuilds/*
 
 # Builds
