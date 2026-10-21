@@ -12,6 +12,8 @@ public class StarGenerator : MonoBehaviour
     [Header("Prefabs & Containers")]
     public GameObject starPrefab;
     public Transform starContainer;
+    [SerializeField] private Material starMatReference;
+
 
     [Header("Impostazioni Proiezione 2D")]
     public float projectionScale = 50f;
@@ -35,7 +37,7 @@ public class StarGenerator : MonoBehaviour
     private bool reveal = false;
 
     // Stars
-    private Dictionary<int, GameObject> instantiatedStars = new Dictionary<int, GameObject>();
+    private Dictionary<uint, GameObject> instantiatedStars = new Dictionary<uint, GameObject>();
 
     // Every lines of a constellation
     private Dictionary<string, List<LineRenderer>> constellationLines = new Dictionary<string, List<LineRenderer>>();
@@ -228,7 +230,7 @@ public class StarGenerator : MonoBehaviour
         foreach (var kvp in database.starDict)
         {
             StarData star = kvp.Value;
-            GenerateProjectedStar(star.id, star.name, star.ra, star.dec, star.colorIndex, star.mag);
+            GenerateProjectedStar(ref star);
         }
         CustomLogger.Log($"Generazione completata: {instantiatedStars.Count} stelle create a schermo.");
 
@@ -236,10 +238,14 @@ public class StarGenerator : MonoBehaviour
         totalStars = database.starDict.Count;
     }
 
-    void GenerateProjectedStar(int starId, string starName, float raHours, float decDegrees, float bvIndex, float magnitude)
+    void GenerateProjectedStar(ref StarData star)
     {
-        float raRad = raHours * 15f * Mathf.Deg2Rad;
-        float decRad = decDegrees * Mathf.Deg2Rad;
+        //star.name argument?
+        if (!star.mainStar)
+            return; //do not draw
+
+        float raRad = star.ra * 15f * Mathf.Deg2Rad; //from RA in hours
+        float decRad = star.dec * Mathf.Deg2Rad;
 
         float x = Mathf.Cos(decRad) * Mathf.Cos(raRad);
         float y = Mathf.Cos(decRad) * Mathf.Sin(raRad);
@@ -258,22 +264,33 @@ public class StarGenerator : MonoBehaviour
         // localPosition should follow future rotations
         newStar.transform.localPosition = finalPosition;
 
-        float starScale = CalculateStarScale(magnitude);
+        float starScale = CalculateStarScale(star.mag);
         newStar.transform.localScale = new Vector3(starScale, starScale, 1f);
 
-        newStar.name = $"Star_{starId}"; 
+        newStar.name = $"Star_{star.id}"; 
 
         //Renderer and collider properties
         SpriteRenderer starRenderer = newStar.GetComponent<SpriteRenderer>();
+        //update shader for outiline
+        if (starMatReference != null)
+        starRenderer.sharedMaterial = starMatReference;
+        //--end shader
         CircleCollider2D col = newStar.AddComponent<CircleCollider2D>();
         if (starRenderer != null)
         {
             starRenderer.sortingOrder = 1; //the greater the nearer
-            starRenderer.color = CalculateStarColor(bvIndex);
+            starRenderer.color = CalculateStarColor(star.colorIndex);
+#if DEBUG
+            if (star.binCount > 0) //track binary sistem visually
+            {
+                newStar.transform.localScale *= 5f;
+                starRenderer.color = Color.green;
+            }
+#endif
             col.radius = 2 * starRenderer.bounds.extents.x;  //CalculateStarRadius(magnitude, starRenderer);
         }
        
-        instantiatedStars.Add(starId, newStar);
+        instantiatedStars.Add(star.id, newStar);
     }
 
     void DrawConstellations()
@@ -298,7 +315,7 @@ public class StarGenerator : MonoBehaviour
 
     void CreateConstellationLine(Vector3 startLocalPos, Vector3 endLocalPos, string constId, 
                                  float startRadius, float endRadius,
-                                 int startId, int endId)
+                                 uint startId, uint endId)
     {
         // Formatted name, unique name since includes star id "Line_@const_star1_star2"
         GameObject lineObj = new GameObject($"Line_{constId}_{startId}_{endId}");
@@ -369,7 +386,7 @@ public class StarGenerator : MonoBehaviour
         // Filtering on magnitude
         foreach (var kvp in instantiatedStars)
         {
-            int starId = kvp.Key;
+            uint starId = kvp.Key;
             float mag = database.starDict[starId].mag;
 
             // the greater, the less bright

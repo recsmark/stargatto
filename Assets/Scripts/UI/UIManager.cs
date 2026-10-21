@@ -78,7 +78,7 @@ public class UIManager : MonoBehaviour
     void Start()
     {
         SetLanguageItalian(); // Default language
-        versionText.text = "V" + gameVersion + " - " + versionText.text;
+        versionText.text = "V" + gameVersion + "\n\n" + versionText.text;
 #if UNITY_WEBGL
         isInMenu = false;
         cameraController.enabled = false;
@@ -335,7 +335,7 @@ public class UIManager : MonoBehaviour
                 "Menu music: \"Beyond the Gate - Inspired by Stargate\" created by Luis_Humanoide\n" +
                 "Background music: \"Space Ambient\"\n created by SolarFlex\n" +
                 "Star reference DB: HYG 4.2 from AstroNexus.com \n" +
-                "Constellation lines reference: file by MarcvdSluys\n";
+                "Constellation lines reference: file by Marcus van der Sluys / MarcvdSluys\n";
                 ;
 
             creditText.text = credits.ToUpper();
@@ -373,7 +373,7 @@ public class UIManager : MonoBehaviour
 
         cmndsText.text =
             "W, A, S, D: Muovi la visuale\n" +
-            "Q, E: Fai scorrere il tempo (Ruota il cielo)\n" +
+            "Q, E: Fai scorrere                    il tempo (Ruota il cielo)\n" +
             "C, X: Zoom Avanti e Indietro\n" +
             "Rotella del mouse: Zoom Avanti e Indietro\n" +
             "I: Inquinamento luminoso ON/OFF\n" +
@@ -396,7 +396,7 @@ public class UIManager : MonoBehaviour
 
         cmndsText.text =
             "W, A, S, D: Move view\n" +
-            "Q, E: Pass time (Rotate sky)\n" +
+            "Q, E: Advance/Rewind time (Rotate sky)\n" +
             "C, X, Mouse Wheel: Zoom In and Out\n" +
             "I: Toggle light pollution\n" +
             "R: Reset view\n";

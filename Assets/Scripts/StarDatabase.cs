@@ -11,13 +11,20 @@ using UnityEngine.Networking; // needed for WebGL
 
 public class StarData
 {
-    public int id;
+    public uint hr;
+    public uint id;
+    public bool mainStar; //main Star in a binary system
     public string name;
     public float ra;
     public float dec;
     public float mag;
     public float dist;
     public float colorIndex;
+    public uint binMain;
+    public byte binInd;
+    public uint[] idsBins = new uint[2] { 0, 0 };
+    public byte binCount = 0;
+    public Vector3 xyz;
 }
 
 public class ConstellationInfo //TBD csv ES
@@ -32,8 +39,8 @@ public class ConstellationInfo //TBD csv ES
 public class ConstellationLink
 {
     public string constellationId;
-    public int startId;
-    public int endId;
+    public uint startId;
+    public uint endId;
 }
 
 // --- DATABASE MANAGER ---
@@ -42,12 +49,12 @@ public class StarDatabase : MonoBehaviour
 {
     private readonly byte xorKey = 12; //encoder key
     public readonly float maxNakedEyeMagnitude = 5.5f; //should be 6.5f
-    const int maxStars = 3000;
+    const uint maxStars = 3000;
 
     public bool isLoaded = false;
 
     // public maps for StarGenerator
-    public Dictionary<int, StarData> starDict = new Dictionary<int, StarData>();
+    public Dictionary<uint, StarData> starDict = new Dictionary<uint, StarData>();
     public Dictionary<string, ConstellationInfo> constellationDict = new Dictionary<string, ConstellationInfo>();
     public List<ConstellationLink> linkList = new List<ConstellationLink>();
 
@@ -56,8 +63,9 @@ public class StarDatabase : MonoBehaviour
         public readonly string fileName = "hyg_v42.csv"; //https://www.astronexus.com/projects/hyg
         public readonly char separator = ',';
         //https://www.astronexus.com/projects/hyg-details
-        const string idStr = "hr"; //hr -> Harvard Revised catalog, which is the same as its number in the Yale Bright Star Catalog
+        const string hrStr = "hr"; //hr -> Harvard Revised catalog, which is the same as its number in the Yale Bright Star Catalog
                                    //hip ->  hipparcos ID
+        const string idStr = "id"; //primary id in this database
         const string nameStr = "proper"; //common name
         const string raStr = "RA"; //right ascension for epoch and equinox 2000.0
         const string decStr = "Dec"; //declination for epoch and equinox 2000.0
@@ -65,10 +73,15 @@ public class StarDatabase : MonoBehaviour
         const string distStr = "dist"; //distance ([pc] from catalogue)
         const string colStr = "CI"; //color index when known
         const string conStr = "con"; //std const abbreviation
+        const string binIndStr = "comp"; //if the star is the 2nd/3rd star in a system, the number is > 1
+        const string binMainStr = "comp_primary"; //if the star is the 2nd/3rd star in a system, != from id
+        const string cartStr = "x"; //cartesian coordinates (y,z following)
+        const string baseStr = "base"; //alternative/catalogue name
 
         // -1 as null idx
         public Dictionary<string, int> indices = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
         {
+            { hrStr, -1 },
             { idStr, -1 },
             { nameStr, -1 },
             { raStr, -1 },
@@ -76,10 +89,15 @@ public class StarDatabase : MonoBehaviour
             { magStr, -1 },
             { distStr, -1 },
             { colStr, -1 },
-            { conStr, -1 }
+            { conStr, -1 },
+            { binIndStr, -1 },
+            { binMainStr, -1 },
+            { cartStr, -1 },
+            { baseStr, -1 }
         };
 
         // reading shortCut
+        public int hr => indices[hrStr];
         public int id => indices[idStr];
         public int name => indices[nameStr];
         public int ra => indices[raStr];
@@ -88,6 +106,12 @@ public class StarDatabase : MonoBehaviour
         public int dist => indices[distStr];
         public int color => indices[colStr];
         public int con => indices[conStr];
+        public int binInd => indices[binIndStr];
+        public int binMain => indices[binMainStr];
+        public int x => indices[cartStr];
+        public int y => indices[cartStr]+1;
+        public int z => indices[cartStr]+2;
+        public int nbase => indices[baseStr];
 
         public bool IsValid()
         {
@@ -230,27 +254,38 @@ public class StarDatabase : MonoBehaviour
             using (BinaryReader reader = new BinaryReader(ms))
             {
                 // 1. Read star DB
-                int starCount = reader.ReadInt32();
+                uint starCount = reader.ReadUInt32();
                 CustomLogger.Log($"[DB-R] n° stelle: {starCount}");
-                for (int i = 0; i < starCount; i++)
+                for (uint i = 0; i < starCount; i++)
                 {
                     StarData star = new StarData();
-                    star.id = reader.ReadInt32();
+                    star.id = reader.ReadUInt32();
+                    star.hr = reader.ReadUInt32();
                     star.name = ObfuscateString(reader.ReadString());
                     star.ra = reader.ReadSingle();
                     star.dec = reader.ReadSingle();
                     star.mag = reader.ReadSingle();
                     star.dist = reader.ReadSingle();
                     star.colorIndex = reader.ReadSingle();
+                    star.binMain = reader.ReadUInt32();
+                    star.binInd = reader.ReadByte();
+                    star.mainStar = reader.ReadBoolean();
+                    float x = reader.ReadSingle();
+                    float y = reader.ReadSingle();
+                    float z = reader.ReadSingle();
+                    star.xyz = new Vector3(x, y, z);
+                    star.idsBins[0] = reader.ReadUInt32();
+                    star.idsBins[1] = reader.ReadUInt32();
+                    star.binCount = reader.ReadByte();
 
                     starDict.Add(star.id, star);
                 }
                 CustomLogger.Log($"[DB-R] lettura stelle: {starDict.Count}");
 
                 // 2. Read constellation DB
-                int constCount = reader.ReadInt32();
+                uint constCount = reader.ReadUInt32();
                 CustomLogger.Log($"[DB-R] n° costellazioni: {constCount}");
-                for (int i = 0; i < constCount; i++)
+                for (uint i = 0; i < constCount; i++)
                 {
                     ConstellationInfo info = new ConstellationInfo();
                     info.id = ObfuscateString(reader.ReadString());
@@ -264,14 +299,14 @@ public class StarDatabase : MonoBehaviour
                 CustomLogger.Log($"[DB-R] lettura costellazioni: {constellationDict.Count}");
 
                 // 3. Read lines DB
-                int linkCount = reader.ReadInt32();
+                uint linkCount = reader.ReadUInt32();
                 CustomLogger.Log($"[DB-R] n° linee: {linkCount}");
-                for (int i = 0; i < linkCount; i++)
+                for (uint i = 0; i < linkCount; i++)
                 {
                     ConstellationLink link = new ConstellationLink();
                     link.constellationId = ObfuscateString(reader.ReadString());
-                    link.startId = reader.ReadInt32();
-                    link.endId = reader.ReadInt32();
+                    link.startId = reader.ReadUInt32();
+                    link.endId = reader.ReadUInt32();
 
                     linkList.Add(link);
                 }
@@ -354,8 +389,8 @@ public class StarDatabase : MonoBehaviour
             return false;
         }
 
-        int missedStars = 0;
-        for (int i = 1; i < starLines.Length; i++) //  jump header
+        uint missedStars = 0;
+        for (uint i = 1; i < starLines.Length; i++) //  jump header
         {
             string[] data = starLines[i].Split(starIdx.separator);
             if (data.Length >= starIdx.indices.Count)
@@ -370,15 +405,43 @@ public class StarDatabase : MonoBehaviour
                 }
 
                 StarData star = new StarData();
-                star.id = int.Parse(data[starIdx.id]);
+                star.id = uint.Parse(data[starIdx.id]);
+                star.hr = uint.Parse(data[starIdx.hr]);
+                star.mainStar = true;
                 star.name = ObfuscateString(data[starIdx.name]);
                 star.ra = float.Parse(data[starIdx.ra], CultureInfo.InvariantCulture); //InvariantCulture set -> . as decimal for all users
                 star.dec = float.Parse(data[starIdx.dec], CultureInfo.InvariantCulture);
                 star.mag = float.Parse(data[starIdx.mag], CultureInfo.InvariantCulture);
                 star.dist = float.Parse(data[starIdx.dist], CultureInfo.InvariantCulture);
                 star.colorIndex = float.Parse(data[starIdx.color], CultureInfo.InvariantCulture);
+                star.binMain = uint.Parse(data[starIdx.binMain]);
+                star.binInd = byte.Parse(data[starIdx.binInd]);
+                star.xyz = new Vector3(float.Parse(data[starIdx.x], CultureInfo.InvariantCulture),
+                                       float.Parse(data[starIdx.y], CultureInfo.InvariantCulture),
+                                       float.Parse(data[starIdx.z], CultureInfo.InvariantCulture));
+                string baseName = ObfuscateString(data[starIdx.nbase]);
+                if (string.IsNullOrEmpty(star.name) || star.name == "\"\"")
+                    star.name = baseName;
                 starDict.Add(star.id, star);
             }                
+        }
+
+        //check for binaries?
+        foreach (var star in starDict)
+        {
+            if (star.Value.binMain != 0 && star.Value.binMain != star.Value.id && star.Value.binInd > 1)
+            {
+                //binary found
+                star.Value.mainStar = false;
+                //insert id in the binary array of the main star, if exist (TBD filter)
+                if (starDict.ContainsKey(star.Value.binMain))
+                {
+                    //main stars have binInd == 1
+                    //secondary stars have 2 or 3
+                    starDict[star.Value.binMain].idsBins[star.Value.binInd - 2] = star.Value.id;
+                    ++starDict[star.Value.binMain].binCount; //update counter
+                }
+            }
         }
 
         if (missedStars > 0)
@@ -396,15 +459,15 @@ public class StarDatabase : MonoBehaviour
             return false;
         }
 
-        int lineCount = 0;
-        int startStar = 0; int endStar = 0;
+        uint lineCount = 0;
+        uint startStarHr = 0; uint endStarHr = 0;
 
-        for (int i = 1; i < linkLines.Length; i++)
+        for (uint i = 1; i < linkLines.Length; i++)
         {
             string[] data = linkLines[i].Split(linkIdx.separator);
             if (data.Length >= linkIdx.indices.Count)
             {   
-                lineCount = int.Parse(data[linkIdx.num]);
+                lineCount = uint.Parse(data[linkIdx.num]);
                 string cName = ObfuscateString(data[linkIdx.id].ToUpper());
 #if UNITY_EDITOR
                 string altName = ObfuscateString(cName); //debug only
@@ -413,36 +476,44 @@ public class StarDatabase : MonoBehaviour
                 if (!constellationDict.ContainsKey(cName)) //filter by constellation
                     continue; //next line
 
-                for (int startId = 1; startId < lineCount; startId++)
+                StarData startStar;
+                StarData endStar;
+                for (uint startId = 1; startId < lineCount; startId++)
                 {
-                    startStar = int.Parse(data[linkIdx.num + startId]);
-                    if (!starDict.ContainsKey(startStar))
+                    startStarHr = uint.Parse(data[linkIdx.num + startId]);
+                    //if (!starDict.ContainsKey(startStar)) now hr is not key
+                    startStar = starDict.Values.FirstOrDefault(s => s.hr == startStarHr);
+                    if (startStar == null)
                         continue; //advance index
 
                     //check for a real endline to not miss lines for missing stars
-                    int endId = startId; //because +1 will be added next line
+                    uint endId = startId; //because +1 will be added next line
                     do
                     {
                         endId++;
-                        endStar = int.Parse(data[linkIdx.num + endId]);
-                        if (starDict.ContainsKey(endStar)) //valid line found
+                        endStarHr = uint.Parse(data[linkIdx.num + endId]);
+                        endStar = starDict.Values.FirstOrDefault(s => s.hr == endStarHr);
+                        if (endStar != null) //valid line found
                             break;
                     } 
                     while (endId < lineCount);
 
-                    if (startStar == endStar)
+                    if (startStar == null || endStar == null)
                         continue; //collapsed line, unneded safety check
 
-                    if (startStar == 0 || endStar == 0)
+                    if (startStar.hr == endStar.hr)
+                        continue; //collapsed line, unneded safety check
+
+                    if (startStarHr == 0 || endStarHr == 0)
                         continue; //invalid id
 
                     //add only referenced stars
-                    if (starDict.ContainsKey(startStar) && starDict.ContainsKey(endStar)) //redundant check
+                    if (starDict.ContainsKey(startStar.id) && starDict.ContainsKey(endStar.id)) //redundant check
                     {
                         ConstellationLink link = new ConstellationLink();
                         link.constellationId = cName;
-                        link.startId = startStar;
-                        link.endId = endStar;
+                        link.startId = startStar.id;
+                        link.endId = endStar.id;
                         linkList.Add(link);
                     }
                 }
@@ -458,12 +529,22 @@ public class StarDatabase : MonoBehaviour
             foreach (var kvp in starDict)
             {
                 writer.Write(kvp.Value.id);
+                writer.Write(kvp.Value.hr);
                 writer.Write(kvp.Value.name);
                 writer.Write(kvp.Value.ra);
                 writer.Write(kvp.Value.dec);
                 writer.Write(kvp.Value.mag);
                 writer.Write(kvp.Value.dist);
                 writer.Write(kvp.Value.colorIndex);
+                writer.Write(kvp.Value.binMain);
+                writer.Write(kvp.Value.binInd);
+                writer.Write(kvp.Value.mainStar);
+                writer.Write(kvp.Value.xyz.x);
+                writer.Write(kvp.Value.xyz.y);
+                writer.Write(kvp.Value.xyz.z);
+                writer.Write(kvp.Value.idsBins[0]);
+                writer.Write(kvp.Value.idsBins[1]);
+                writer.Write(kvp.Value.binCount);
             }
 
             // Contsellation info
@@ -497,14 +578,14 @@ public class StarDatabase : MonoBehaviour
 
     private void MapHeaderIndices(string[] headerColumns, Dictionary<string, int> targetMap)
     {
-        for (int i = 0; i < headerColumns.Length; i++)
+        for (uint i = 0; i < headerColumns.Length; i++)
         {
             string columnName = headerColumns[i].Trim().Trim('"'); //delete spaces and " "
 
             //do not need to perform ToLower, StringComparer.OrdinalIgnoreCase in dictionary handle this
             if (targetMap.ContainsKey(columnName))
             {
-                targetMap[columnName] = i;
+                targetMap[columnName] = System.Convert.ToInt32(i);
             }
         }
     }
@@ -515,6 +596,8 @@ public class StarDatabase : MonoBehaviour
         //int a;
         if (string.IsNullOrEmpty(input))
             return input;
+        if (input == "\"\"")
+            return "";
         if (key == 0)
             return input;
 

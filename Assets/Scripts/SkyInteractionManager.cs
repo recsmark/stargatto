@@ -29,7 +29,8 @@ public class SkyInteractionManager : MonoBehaviour
     void Update()
     {
         // 1. Reset tooltip every frame
-        tooltip.enable(false);
+        tooltip.enable(false, 0);
+        tooltip.enable(false, 1);
         string newHoveredConstellation = "";
 
         // 2. Convert mouse position
@@ -71,22 +72,23 @@ public class SkyInteractionManager : MonoBehaviour
             if (objName.StartsWith("Star_"))
             {
                 // Get star ID from name (es: from "Star_123" to "123") ...
-                int starId = int.Parse(objName.Split('_')[1]);
+                uint starId = uint.Parse(objName.Split('_')[1]);
 
                 // ... and use in dictionary to retrieve name
                 if (starGenerator.database.starDict.ContainsKey(starId))
                 {
-                    string starName = starGenerator.database.starDict[starId].name;
-#if DEBUG           
-                    //add id to catch quick an draw missing lines in development
-                    starName += "_" + starId.ToString();
-#endif
-                    if (!string.IsNullOrEmpty(starName))
+                    StarData star = starGenerator.database.starDict[starId];
+                    if (star.mainStar)
                     {
-                        float ly = PC_TO_LYEAR * starGenerator.database.starDict[starId].dist;
-                        ShowStarTooltip(starName,
-                                        starGenerator.database.starDict[starId].mag.ToString("0.00"),
-                                        ly.ToString("0.00"));
+                        ShowStarTooltip(ref star);
+                    }
+
+                    if (star.binCount == 1)
+                    {
+                        //2nd star
+                        StarData second = starGenerator.database.starDict[star.idsBins[0]];
+                        if (second != null)
+                            Show2ndStarTooltip(ref second);
                     }
                 }
             }
@@ -147,24 +149,34 @@ public class SkyInteractionManager : MonoBehaviour
     }
 
     // --- UTILITY METHODS ---
-    private void ShowStarTooltip(string name, string mag, string distance)
+    private void ShowStarTooltip(ref StarData star, bool isMain = true)
     {
-        string textToShow = name + "\nm " + mag + "\n" + distance;
+        string starName = string.IsNullOrEmpty(star.name) ? (isMain ? (star.binCount > 0 ? "A" : "") : "B" ) : star.name;
+#if !DEBUG
+        //add id to catch quick an draw missing lines in development
+        starName += "_" + star.id.ToString();
+#endif
+        string textToShow = starName + "\nm " + star.mag.ToString("0.00") + "\n" + (star.dist*PC_TO_LYEAR).ToString("0.00");
 
         if (currentLanguage == AppLanguage.Italian)
             textToShow += " a.l.";
         else
             textToShow += " ly";
 
-        ShowTooltip(textToShow);
+        ShowTooltip(textToShow, false, !isMain);
     }
 
-    private void ShowTooltip(string textToShow, bool isConstellation = false)
+    private void Show2ndStarTooltip(ref StarData star)
     {
-        //TBD double label?
-        tooltip.enable(true);
+        ShowStarTooltip(ref star, false);
+    }
+
+    private void ShowTooltip(string textToShow, bool isConstellation = false, bool isBinary = false)
+    {
+        byte index = isBinary ? (byte)1 : (byte)0;
         tooltip.setFontSize(isConstellation);
-        tooltip.setText(textToShow);
+        tooltip.setText(textToShow, index);
+        tooltip.enable(true, index);
     }
 
     // Detail panel function TODO
