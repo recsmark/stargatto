@@ -83,8 +83,8 @@ public static class SiderealMath
 public class StarContainer : MonoBehaviour
 {
     private Quaternion initialSkyRotation;
-    private float _deltaRotationHour = 0;
-    private float _initialDeltaRotationHour = 0;
+    private float _LST_hour = 0;
+    private float _UTC_rotated = 0;
     private float _initialRotationHour = 0;
     private const float skyRotationSpeed = 15f; //[deg/hour]
     //Lat/Lon of Costigiola https://costigiola.it/dove-siamo/
@@ -96,44 +96,27 @@ public class StarContainer : MonoBehaviour
     public DateValidator validator;
 
     // Example of complete setter-getter structure
-    public float SkyRotation
+    public float SkyRotationLST
     {
         get
         {
-            //Prevents date jumps
-            if (_deltaRotationHour + _initialDeltaRotationHour >= 24f)
-            {
-                return _deltaRotationHour - 24f;
-            }
-            else if (_deltaRotationHour + _initialDeltaRotationHour < 0)
-            {
-                return _deltaRotationHour + 24f;
-            }
-            else
-            {
-                return _deltaRotationHour;
-            }
+            return _LST_hour;
         }
-        /*
-        set
-        {
-            //update a variable, then a method can be called
-        }
-        */
     }
 
-    private void Apply(DateTime dateRef)
+    public float SkyRotationUTC
     {
-        _initialRotationHour = SiderealMath.CalculateLocalSiderealAngle(localLongitude, dateRef);
-        ApplyRotation(_initialRotationHour);
-        initialSkyRotation = transform.rotation;
+        get
+        {
+            return _UTC_rotated;
+        }
     }
-
     public void Initialize()
     {
         DateTime initDate = DateTime.UtcNow;
         Apply(initDate);
-        validator.OnDateSuccessfullyValidated += SetNewDate;
+        if (validator != null)
+            validator.OnDateSuccessfullyValidated += SetNewDate;
     }
 
     public void SetNewDate()
@@ -143,16 +126,28 @@ public class StarContainer : MonoBehaviour
         DateTime utc = dateRef.Date + utcTime.TimeOfDay; //mix date from validator with current time
         //transform.Rotate(Vector3.forward, -_deltaRotationHour);
         transform.eulerAngles = new Vector3(0f, 0f, 0f);
-        _deltaRotationHour = 0; //set again to 0 to proper init
+        _LST_hour = 0; //set again to 0 to proper init
+        _UTC_rotated = 0;
         Apply(utc);
+    }
+
+    private void Apply(DateTime dateRef)
+    {
+        _initialRotationHour = SiderealMath.CalculateLocalSiderealAngle(localLongitude, dateRef);
+        _UTC_rotated -= _initialRotationHour; //instantiate difference, assuming the same speed
+        ApplyRotation(_initialRotationHour);
+
+        initialSkyRotation = transform.rotation;
     }
 
     public void ApplyRotation(float deltaTime, float speed = skyRotationSpeed)
     {
-        float deltaAngle = deltaTime * speed;
+        //float deltaAngle = deltaTime * speed;
         transform.Rotate(Vector3.forward, speed * deltaTime);
-        _deltaRotationHour += deltaTime;
-        _deltaRotationHour %= 24f;
+        _LST_hour += deltaTime;
+        _LST_hour %= 24f;
+        _UTC_rotated += deltaTime;
+        _UTC_rotated %= 24f;
     }
 
     public void ApplyReset()

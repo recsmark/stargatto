@@ -196,19 +196,14 @@ public class SkyInteractionManager : MonoBehaviour
 
     public void updateGameUI()
     {
-        float rotationH = skyContainer.SkyRotation; //gives delta between current and UTC (+ sky rotation)
+        float rotationH = skyContainer.SkyRotationUTC; //gives delta between current and UTC (+ sky rotation)
         DateTime currentDate = validator?.GetDate() ?? DateTime.UtcNow;
-        DateTime currentTime = currentDate.Date; //set the date with no hour
         //using AddHours make the object a TimeSpan, so the new format is needed
-        upperText.text = currentTime.AddHours(rotationH).TimeOfDay.ToString(@"hh\:mm\:ss"); //current SIDEREAL time = UTC + rotation
+        upperText.text = currentDate.AddHours(rotationH).TimeOfDay.ToString(@"hh\:mm\:ss"); //current SIDEREAL time = UTC + rotation
         if (currentLanguage == AppLanguage.Italian)
-            upperText.text += " Ora Siderale Locale";
+            upperText.text += " UTC / Cielo posizionato @ Long. ";
         else
-            upperText.text += " Local Sidereal Time";
-
-        //upperText.text += " @ Long. " + skyContainer.localLongitude.ToString() + "°"; 
-        //now Lat/Long are inputs with spinbox aligned
-        upperText.text += " @ Long. "; 
+            upperText.text += " UTC / Sky positioned @ Long. ";
 
         /*ParseExact(
                                "ddd, dd MMM yyyy HH:mm:ss 'GMT'",

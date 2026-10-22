@@ -23,6 +23,7 @@ public class DateValidator : MonoBehaviour
         {
             // Aggiungiamo un comando che scatta appena l'utente finisce di scrivere
             dateInputField.text = DateTime.Now.ToString(format);
+            dateInputField.ForceLabelUpdate(); // AGGIUNGI QUESTA RIGA
             ((TMP_Text)dateInputField.placeholder).text = currentLanguage == AppLanguage.Italian ? "Inserire data..." : "Insert date...";
             dateInputField.onEndEdit.AddListener(ValidateDate);
         }
@@ -43,7 +44,6 @@ public class DateValidator : MonoBehaviour
 
             // Imposta il colore del testo su nero (o bianco, a seconda del tuo tema) per confermare
             dateInputField.textComponent.color = Color.black;
-
             validatedDate = parsedDate;
             hasValidDate = true;
             OnDateSuccessfullyValidated?.Invoke();
@@ -56,7 +56,8 @@ public class DateValidator : MonoBehaviour
             dateInputField.textComponent.color = Color.red;
 
             // OPZIONALE: Se vuoi che il campo si svuoti quando la data è sbagliata, de-commenta la riga sotto:
-            dateInputField.text = "--/--/----"; 
+            dateInputField.text = "--/--/----";
+            dateInputField.caretPosition = dateInputField.text.Length;
 
             hasValidDate = false;
         }
@@ -66,7 +67,7 @@ public class DateValidator : MonoBehaviour
     {
         if (hasValidDate)
         {
-            return validatedDate;
+            return validatedDate.Date + DateTime.UtcNow.TimeOfDay;
         }
         else
         {
