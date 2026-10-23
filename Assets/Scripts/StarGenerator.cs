@@ -384,6 +384,17 @@ public class StarGenerator : MonoBehaviour
         }
     }
 
+    public void HideConstellation(string constId)
+    {
+        if (constellationLines.ContainsKey(constId)) //redundant here
+        {
+            bool flag = SetConstellatioHidden(constId);
+            if (flag)
+                visibleConstellations.Remove(constId); // Marked as not visible
+        }
+    }
+
+
     public void ToggleLightPollution()
     {
         if (!skyGenerated) return;
@@ -450,6 +461,11 @@ public class StarGenerator : MonoBehaviour
         reveal = !skyRevealed;
         foreach (var constId in database.constellationDict.Keys)
         {
+            //geometry can't be discovered or uncovered
+            if (database.constellationDict[constId].type == LinkType.GEOMETRY)
+                continue;
+
+
             if (constellationLines.ContainsKey(constId))
             {
                 Color targetColor = hiddenColor;  
@@ -469,6 +485,10 @@ public class StarGenerator : MonoBehaviour
     {
         if (constellationLines.ContainsKey(constId) && (visibleConstellations.Contains(constId) || skyRevealed))
         {
+            //geometry can't be discovered or uncovered
+            if (database.constellationDict[constId].type == LinkType.GEOMETRY)
+                return;
+
             Color targetColor = DetermineColor(constId, isGlowing);
 
             foreach (LineRenderer lr in constellationLines[constId])
@@ -477,6 +497,28 @@ public class StarGenerator : MonoBehaviour
                 lr.endColor = targetColor;
             }
         }
+    }
+
+    public bool SetConstellatioHidden(string constId)
+    {
+        if (constellationLines.ContainsKey(constId) && visibleConstellations.Contains(constId))
+        {
+            //geometry can't be discovered or uncovered
+            if (database.constellationDict[constId].type == LinkType.GEOMETRY)
+                return false;
+
+            Color targetColor = Color.clear;
+
+            foreach (LineRenderer lr in constellationLines[constId])
+            {
+                lr.startColor = targetColor;
+                lr.endColor = targetColor;
+            }
+
+            return true;
+        }
+
+        return false;
     }
 
     // --- UTILITY ---

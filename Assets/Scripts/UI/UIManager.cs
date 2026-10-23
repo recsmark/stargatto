@@ -372,8 +372,9 @@ public class UIManager : MonoBehaviour
         escapeText.text = "Premi ESC per chiudere";
 
         cmndsText.text =
+            "Mouse sinistro/destro: scopri/nascondi costellazione\n" +
             "W, A, S, D: Muovi la visuale\n" +
-            "Q, E: Fai scorrere                    il tempo (Ruota il cielo)\n" +
+            "Q, E: Fai scorrere il tempo (Ruota il cielo)\n" +
             "C, X: Zoom Avanti e Indietro\n" +
             "Rotella del mouse: Zoom Avanti e Indietro\n" +
             "I: Inquinamento luminoso ON/OFF\n" +
@@ -395,6 +396,7 @@ public class UIManager : MonoBehaviour
         escapeText.text = "Press ESC to close";
 
         cmndsText.text =
+            "Left/right click: reveal/hide constellation\n" +
             "W, A, S, D: Move view\n" +
             "Q, E: Advance/Rewind time (Rotate sky)\n" +
             "C, X, Mouse Wheel: Zoom In and Out\n" +

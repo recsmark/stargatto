@@ -26,6 +26,13 @@ public class SkyInteractionManager : MonoBehaviour
     private string currentHoveredConstellation = "";
     private AppLanguage currentLanguage = AppLanguage.Italian; //see UIManager
 
+    private enum MouseButton //Enum missing in Unity???
+    {
+        MOUSE_LEFT = 0,
+        MOUSE_RIGHT = 1,
+        MOUSE_WHEEL_CLICK = 2
+    }
+
     void Update()
     {
         // 1. Reset tooltip every frame
@@ -114,8 +121,8 @@ public class SkyInteractionManager : MonoBehaviour
                     }
                 }
 
-                // Discover lines by click
-                if (Input.GetMouseButtonDown(0)) //left click
+                // Discover lines by left click
+                if (Input.GetMouseButtonDown((int)MouseButton.MOUSE_LEFT))
                 {
                     if (!starGenerator.visibleConstellations.Contains(constId))
                     {
@@ -124,6 +131,14 @@ public class SkyInteractionManager : MonoBehaviour
 
                     // Call level 2 details (TODO)
                     OpenDetailsPanel(constId, "Constellation");
+                }
+                //hide lines by right click
+                else if (Input.GetMouseButtonDown((int)MouseButton.MOUSE_RIGHT))
+                {
+                    if (starGenerator.visibleConstellations.Contains(constId))
+                    {
+                        starGenerator.HideConstellation(constId);
+                    }
                 }
             }
         }
