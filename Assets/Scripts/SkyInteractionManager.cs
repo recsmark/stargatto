@@ -88,7 +88,7 @@ public class SkyInteractionManager : MonoBehaviour
                         //2nd star
                         StarData second = starGenerator.database.starDict[star.idsBins[0]];
                         if (second != null)
-                            Show2ndStarTooltip(ref second);
+                            Show2ndStarTooltip(ref second, star.name);
                     }
                 }
             }
@@ -149,14 +149,26 @@ public class SkyInteractionManager : MonoBehaviour
     }
 
     // --- UTILITY METHODS ---
-    private void ShowStarTooltip(ref StarData star, bool isMain = true)
+    private void ShowStarTooltip(ref StarData star, bool isMain = true, bool sameName = false)
     {
-        string starName = string.IsNullOrEmpty(star.name) ? (isMain ? (star.binCount > 0 ? "A" : "") : "B" ) : star.name;
+        string AssignLetter(bool isMain, byte binCount)
+        {
+            return isMain ? (binCount > 0 ? "A" : "") : "B";
+        }
+
+        string starName = star.name;
+        if (string.IsNullOrEmpty(star.name))
+            starName = AssignLetter(isMain, star.binCount); //overwrite null string
+        else
+        {
+            if (sameName) //tag each star
+                starName += " " + AssignLetter(isMain, star.binCount);
+        }
 #if !DEBUG
         //add id to catch quick an draw missing lines in development
         starName += "_" + star.id.ToString();
 #endif
-        string textToShow = starName + "\nm " + star.mag.ToString("0.00") + "\n" + (star.dist*PC_TO_LYEAR).ToString("0.00");
+            string textToShow = starName + "\nm " + star.mag.ToString("0.00") + "\n" + (star.dist * PC_TO_LYEAR).ToString("0.00");
 
         if (currentLanguage == AppLanguage.Italian)
             textToShow += " a.l.";
@@ -166,9 +178,9 @@ public class SkyInteractionManager : MonoBehaviour
         ShowTooltip(textToShow, false, !isMain);
     }
 
-    private void Show2ndStarTooltip(ref StarData star)
+    private void Show2ndStarTooltip(ref StarData star, string mainName)
     {
-        ShowStarTooltip(ref star, false);
+        ShowStarTooltip(ref star, false, mainName == star.name);
     }
 
     private void ShowTooltip(string textToShow, bool isConstellation = false, bool isBinary = false)

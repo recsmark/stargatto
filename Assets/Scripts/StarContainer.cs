@@ -6,23 +6,23 @@ using UnityEngine;
 public static class SiderealMath
 {
     /// <summary>
-    /// Funzione principale da chiamare. Calcola l'angolo di rotazione del cielo in gradi (0-360).
+    /// Calc sky rotation in hour angle, also equivalent as Local Sidereal Time
     /// </summary>
-    /// <param name="longitude">La longitudine in gradi (Es. 15f per il meridiano standard GMT+1)</param>
-    /// <returns>Angolo in gradi (float) pronto da applicare all'asse di rotazione</returns>
+    /// <param name="longitude">Longitude in [deg]</param>
+    /// <returns>rotation angle / LST in hours</returns>
     public static float CalculateLocalSiderealAngle(float longitude, DateTime refUtcDate)
     {
-        // 1. Convertiamo in UTC per avere uno standard assoluto rispetto all'Epoca J2000
+        // 1. Add UTC time to ref date from UI input
         DateTime localTime = DateTime.UtcNow;
         DateTime utcTime = refUtcDate.Date + localTime.TimeOfDay;
 
-        // 2. Troviamo i giorni trascorsi
+        // 2. Calc days from J2000 Epoch
         double daysSinceJ2000 = GetDaysSinceJ2000(utcTime);
 
-        // 3. Calcoliamo il tempo di Greenwich
+        // 3. GMST = LST at GreenWich
         double gmst = CalculateGMST(daysSinceJ2000); //[deg]
 
-        // 4. Applichiamo la correzione locale (Est è positivo, Ovest è negativo)
+        // 4. Apply longitude correction
         double lst = (gmst + longitude) / 360 * 24; //local sidereal time
 
         // 5. Normalize in range 0..24h
@@ -35,15 +35,12 @@ public static class SiderealMath
         return (float)lst;
     }
 
-    // --- FUNZIONI DI SUPPORTO INTERNE ---
-
     private static double GetDaysSinceJ2000(DateTime utcNow)
     {
-        // Epoca J2000: 1 Gennaio 2000, ore 12:00:00 UTC
+        // Epoch J2000: 1 Jan 2000, ore 12:00:00 UTC
         DateTime j2000 = new DateTime(2000, 1, 1, 12, 0, 0, DateTimeKind.Utc);
         TimeSpan timeDifference = utcNow - j2000;
 
-        // Ritorna la differenza totale in giorni, inclusi i decimali per le ore/minuti
         return timeDifference.TotalDays;
     }
 
