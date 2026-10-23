@@ -145,13 +145,13 @@ public class SkyInteractionManager : MonoBehaviour
         // Trace the current constellation
         currentHoveredConstellation = newHoveredConstellation;
 
-        updateGameUI();
+        UpdateGameUI();
     }
 
     // --- UTILITY METHODS ---
     private void ShowStarTooltip(ref StarData star, bool isMain = true, bool sameName = false)
     {
-        string AssignLetter(bool isMain, byte binCount)
+        static string AssignLetter(bool isMain, byte binCount)
         {
             return isMain ? (binCount > 0 ? "A" : "") : "B";
         }
@@ -164,11 +164,11 @@ public class SkyInteractionManager : MonoBehaviour
             if (sameName) //tag each star
                 starName += " " + AssignLetter(isMain, star.binCount);
         }
-#if !DEBUG
+#if UNITY_EDITOR || DEVELOPMENT_BUILD //development build only when builds
         //add id to catch quick an draw missing lines in development
         starName += "_" + star.id.ToString();
 #endif
-            string textToShow = starName + "\nm " + star.mag.ToString("0.00") + "\n" + (star.dist * PC_TO_LYEAR).ToString("0.00");
+        string textToShow = starName + "\nm " + star.mag.ToString("0.00") + "\n" + (star.dist * PC_TO_LYEAR).ToString("0.00");
 
         if (currentLanguage == AppLanguage.Italian)
             textToShow += " a.l.";
@@ -206,7 +206,7 @@ public class SkyInteractionManager : MonoBehaviour
         validator.currentLanguage = language;
     }
 
-    public void updateGameUI()
+    public void UpdateGameUI()
     {
         float rotationH = skyContainer.SkyRotationUTC; //gives delta between current and UTC (+ sky rotation)
         DateTime currentDate = validator?.GetDate() ?? DateTime.UtcNow;
