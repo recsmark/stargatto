@@ -3,7 +3,6 @@ using System.Diagnostics;
 
 public static class CustomLogger
 {
-    // Il metodo verrà eseguito ed elaborato SOLO in Editor o nelle Development Build
     [Conditional("DEVELOPMENT_BUILD"), Conditional("UNITY_EDITOR")]
     public static void Log(object message)
     {
@@ -16,7 +15,6 @@ public static class CustomLogger
         UnityEngine.Debug.LogWarning(message);
     }
 
-    //I log di errore possono essere mantenuti attivi anche in Release se lo desideri
     public static void LogError(object message)
     {
         UnityEngine.Debug.LogError(message);

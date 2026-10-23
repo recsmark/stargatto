@@ -218,7 +218,7 @@ public class UIManager : MonoBehaviour
         {
             starGenerator.GenerateSky();
 
-            // Cambia la musica!
+            // Change soundtrack
             if (audioPlayer != null && skyMusic != null)
             {
                 ChangeAudioTrack(skyMusic);

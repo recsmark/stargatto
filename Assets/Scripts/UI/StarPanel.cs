@@ -1,4 +1,4 @@
-using TMPro; // Necessario per TextMeshPro
+using TMPro; // Needed TextMeshPro
 using UnityEngine;
 
 public class StarPanel : MonoBehaviour
@@ -75,26 +75,28 @@ public class StarPanel : MonoBehaviour
 
         //local function (C#) instead of lambda (from C++)
         //does not allocate other memory
-        void AdjustPivot(ref float pivot, ref float currOffset, float maxAtteso, float minAtteso, float limiteSchermo, float offsetOriginale)
+        void AdjustPivot(ref float pivot, ref float currOffset, 
+                         float max, float min, float screenLimit, 
+                         float origOffset, float size)
         {
             if (pivot == 0.5f)
                 return; //Ok
 
-            if (pivot == 0f && maxAtteso > limiteSchermo)
+            if (pivot == 0f && max > screenLimit)
             {
                 pivot = 1f;
-                currOffset = -Mathf.Abs(offsetOriginale);
+                currOffset = -Mathf.Abs(origOffset + size);
             }
-            else if (pivot == 1f && minAtteso < 0)
+            else if (pivot == 1f && min < 0)
             {
                 pivot = 0f;
-                currOffset = Mathf.Abs(offsetOriginale);
+                currOffset = Mathf.Abs(origOffset + size);
             }
         }
 
         // Adjust pivots, then apply
-        AdjustPivot(ref pivotY, ref currOffsetY, expectedTop, expectedBottom, Screen.height, offset.y);
-        AdjustPivot(ref pivotX, ref currOffsetX, expectedRight, expectedLeft, Screen.width, offset.x);
+        AdjustPivot(ref pivotY, ref currOffsetY, expectedTop, expectedBottom, Screen.height, offset.y, !main ? h : 0f);
+        AdjustPivot(ref pivotX, ref currOffsetX, expectedRight, expectedLeft, Screen.width, offset.x,  !main ? w : 0f);
         rect.pivot = new Vector2(pivotX, pivotY);
 
         // Clamp and lock to the border if needed
