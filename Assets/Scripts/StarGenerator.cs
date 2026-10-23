@@ -4,6 +4,8 @@ using System.Linq; // needed for search
 using System.Runtime.InteropServices.WindowsRuntime;
 using UnityEngine;
 
+using LineRendDict = System.Collections.Generic.Dictionary<string, System.Collections.Generic.List<UnityEngine.LineRenderer>>;
+
 public class StarGenerator : MonoBehaviour
 {
     [Header("Riferimenti Script")]
@@ -21,7 +23,8 @@ public class StarGenerator : MonoBehaviour
     [Header("Impostazioni Linee e Interazioni")]
     public float lineWidth = 0.1f;
     public Material lineMaterial;
-    
+    Material lineBaseMaterial;
+
     // I tre stati di colore per le linee
     public Color hiddenColor = new Color(0.2f, 0.6f, 1.0f, 0f);   // Alpha 0 = Invisible
     public Color normalColor = new Color(0.2f, 0.6f, 1.0f, 0.4f); // Normal
@@ -40,7 +43,7 @@ public class StarGenerator : MonoBehaviour
     private Dictionary<uint, GameObject> instantiatedStars = new Dictionary<uint, GameObject>();
 
     // Every lines of a constellation
-    private Dictionary<string, List<LineRenderer>> constellationLines = new Dictionary<string, List<LineRenderer>>();
+    private LineRendDict constellationLines = new LineRendDict();
 
     // Discovered constellations
     public HashSet<string> visibleConstellations = new HashSet<string>();
@@ -213,6 +216,7 @@ public class StarGenerator : MonoBehaviour
         {
             CustomLogger.LogError("StarDatabase non collegato o non caricato!");
         }
+        lineBaseMaterial = new Material(Shader.Find("Sprites/Default"));
     }
 
     public void GenerateSky() //callback for UI
@@ -306,19 +310,25 @@ public class StarGenerator : MonoBehaviour
                 float startRadius = instantiatedStars[link.startId].GetComponent<SpriteRenderer>().bounds.extents.x;
                 float endRadius = instantiatedStars[link.endId].GetComponent<SpriteRenderer>().bounds.extents.x;
 
-                CreateConstellationLine(startLocalPos, endLocalPos, link.constellationId,
+                LinkType type = LinkType.NO_LINK_TYPE;
+                if (database.constellationDict.ContainsKey(link.identifier))
+                {
+                    type = database.constellationDict[link.identifier].type;
+                }
+
+                CreateConstellationLine(startLocalPos, endLocalPos,
                                         startRadius, endRadius, 
-                                        link.startId, link.endId);
+                                        link, type);
             }
         }
     }
 
-    void CreateConstellationLine(Vector3 startLocalPos, Vector3 endLocalPos, string constId, 
-                                 float startRadius, float endRadius,
-                                 uint startId, uint endId)
+    void CreateConstellationLine(Vector3 startLocalPos, Vector3 endLocalPos,
+                                 float startRadius, float endRadius, 
+                                 StarLinksItem link, LinkType type)
     {
         // Formatted name, unique name since includes star id "Line_@const_star1_star2"
-        GameObject lineObj = new GameObject($"Line_{constId}_{startId}_{endId}");
+        GameObject lineObj = new GameObject($"Line_{link.identifier}_{link.startId}_{link.endId}");
         lineObj.transform.SetParent(starContainer);
         lineObj.transform.localPosition = Vector3.zero;
         lineObj.transform.localRotation = Quaternion.identity;
@@ -331,8 +341,11 @@ public class StarGenerator : MonoBehaviour
         lr.startWidth = lineWidth;
         lr.endWidth = lineWidth;
 
-        if (lineMaterial != null) lr.sharedMaterial = lineMaterial;
-        
+        if (lineMaterial != null && type == LinkType.CONSTELLATION)
+            lr.sharedMaterial = lineMaterial;
+        else if (lineBaseMaterial != null)
+            lr.sharedMaterial = lineBaseMaterial;
+
         //Lines start not visible
         lr.startColor = hiddenColor;
         lr.endColor = hiddenColor;
@@ -354,11 +367,11 @@ public class StarGenerator : MonoBehaviour
         edgeCol.edgeRadius = lineWidth * 1.0f; // click distance tolerance, TBD
 
         // SAVE CREATED LINE
-        if (!constellationLines.ContainsKey(constId))
+        if (!constellationLines.ContainsKey(link.identifier))
         {
-            constellationLines.Add(constId, new List<LineRenderer>());
+            constellationLines.Add(link.identifier, new List<LineRenderer>());
         }
-        constellationLines[constId].Add(lr);
+        constellationLines[link.identifier].Add(lr);
     }
 
     // Publick callbacks
@@ -407,7 +420,7 @@ public class StarGenerator : MonoBehaviour
             if (startMag > pollutionThreshold || endMag > pollutionThreshold)
             {
                 // Search by its unique name
-                Transform lineTransform = starContainer.Find($"Line_{link.constellationId}_{link.startId}_{link.endId}");
+                Transform lineTransform = starContainer.Find($"Line_{link.identifier}_{link.startId}_{link.endId}");
                 if (lineTransform != null)
                 {
                     lineTransform.gameObject.SetActive(!isPolluted);
@@ -418,6 +431,19 @@ public class StarGenerator : MonoBehaviour
         CustomLogger.Log($"Inquinamento luminoso: {(isPolluted ? "ATTIVO" : "DISATTIVO")}");
     }
 
+    Color DetermineColor(string constId, bool isGlowing = false)
+    {
+        //return isGlowing ? glowColor : normalColor;
+
+        return database.constellationDict[constId].type switch
+        {
+            LinkType.NO_LINK_TYPE => Color.clear,
+            LinkType.CONSTELLATION => isGlowing ? glowColor : normalColor,
+            LinkType.ASTERISM => isGlowing ? Color.magenta : Color.red,
+            LinkType.GEOMETRY => isGlowing ? Color.yellow : Color.green,
+            _ => Color.clear //default
+        };
+    }
 
     public void ToggleReveal()
     {
@@ -426,9 +452,10 @@ public class StarGenerator : MonoBehaviour
         {
             if (constellationLines.ContainsKey(constId))
             {
-                Color targetColor = skyRevealed ? normalColor : hiddenColor;
-                if (visibleConstellations.Contains(constId))
-                    targetColor = normalColor;
+                Color targetColor = hiddenColor;  
+                if (visibleConstellations.Contains(constId)  || skyRevealed)
+                    targetColor = DetermineColor(constId);
+
                 foreach (LineRenderer lr in constellationLines[constId])
                 {
                     lr.startColor = targetColor;
@@ -436,15 +463,14 @@ public class StarGenerator : MonoBehaviour
                 }
             }
         }
-
     }
 
     public void SetConstellationGlow(string constId, bool isGlowing)
     {
         if (constellationLines.ContainsKey(constId) && (visibleConstellations.Contains(constId) || skyRevealed))
         {
-            Color targetColor = isGlowing ? glowColor : normalColor;
-            
+            Color targetColor = DetermineColor(constId, isGlowing);
+
             foreach (LineRenderer lr in constellationLines[constId])
             {
                 lr.startColor = targetColor;

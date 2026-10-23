@@ -9,6 +9,14 @@ using UnityEngine;
 using UnityEngine.UIElements;
 using UnityEngine.Networking; // needed for WebGL
 
+public enum LinkType
+{
+    NO_LINK_TYPE = 0,
+    CONSTELLATION = 1,
+    ASTERISM = 2,
+    GEOMETRY = 3
+}
+
 public class StarData
 {
     public uint hr;
@@ -34,11 +42,13 @@ public class ConstellationInfo //TBD csv ES
     public string engName;
     public string meaning;
     public string hemisphere;
+    public LinkType type = LinkType.NO_LINK_TYPE;
+    public string color = "000000"; //no color
 }
 
-public class ConstellationLink
+public class StarLinksItem
 {
-    public string constellationId;
+    public string identifier;
     public uint startId;
     public uint endId;
 }
@@ -56,7 +66,7 @@ public class StarDatabase : MonoBehaviour
     // public maps for StarGenerator
     public Dictionary<uint, StarData> starDict = new Dictionary<uint, StarData>();
     public Dictionary<string, ConstellationInfo> constellationDict = new Dictionary<string, ConstellationInfo>();
-    public List<ConstellationLink> linkList = new List<ConstellationLink>();
+    public List<StarLinksItem> linkList = new List<StarLinksItem>(); //must be a list: couple of lines with the same constellation ID!
 
     private class StarCsvIndices
     {
@@ -163,30 +173,42 @@ public class StarDatabase : MonoBehaviour
             return indices.FirstOrDefault(item => item.Value == -1).Key ?? "";
         }
     }
-
-    private class LinkCsvIndices
+    
+    private class LineCsvIndices
     {
-        //https://github.com/MarcvdSluys/ConstellationLines?tab=readme-ov-file
-        public readonly string fileName = "ConstellationLines.csv"; //uses ID as YALE BRIGHT STAR CATALOGUE //"constellations.csv";
-        public readonly char separator = ',';
+        public readonly string fileName;
+        public readonly char separator;
+
         const string idStr = "abr";
         const string numStr = "nr";
+        const string colStr = "hexCol";
+
+        // Customize instance
+        public LineCsvIndices(string fileName, char separator = ',')
+        {
+            this.fileName = fileName;
+            this.separator = separator;
+        }
 
         // -1 as null idx
         public Dictionary<string, int> indices = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
         {
             { idStr, -1 },
-            { numStr, -1 }
-        };
+            { numStr, -1 },
+            { colStr, -1 }
+    };
 
         // reading shortCut
         public int id => indices[idStr];
         public int num => indices[numStr];
+        public int col => indices[colStr];
 
-
-        public bool IsValid()
+    public bool IsValid(LinkType type)
         {
-            return indices.Values.All(val => val > -1);
+            if (type != LinkType.CONSTELLATION)
+                return indices.Values.All(val => val > -1);
+            else //original constellations does not have col
+                return indices.All(item => item.Value > -1 || item.Key == colStr);
         }
 
         public string keyNotValid()
@@ -293,6 +315,8 @@ public class StarDatabase : MonoBehaviour
                     info.engName = ObfuscateString(reader.ReadString());
                     info.meaning = ObfuscateString(reader.ReadString(), xorKey);
                     info.hemisphere = ObfuscateString(reader.ReadString(), xorKey);
+                    info.type       = (LinkType) reader.ReadByte();
+                    info.color      = ObfuscateString(reader.ReadString(), xorKey);
 
                     constellationDict.Add(info.id, info);
                 }
@@ -303,10 +327,11 @@ public class StarDatabase : MonoBehaviour
                 CustomLogger.Log($"[DB-R] n° linee: {linkCount}");
                 for (uint i = 0; i < linkCount; i++)
                 {
-                    ConstellationLink link = new ConstellationLink();
-                    link.constellationId = ObfuscateString(reader.ReadString());
+                    StarLinksItem link = new StarLinksItem();
+                    link.identifier = ObfuscateString(reader.ReadString());
                     link.startId = reader.ReadUInt32();
                     link.endId = reader.ReadUInt32();
+                    //link.type = (LinkType)reader.ReadByte();
 
                     linkList.Add(link);
                 }
@@ -331,7 +356,20 @@ public class StarDatabase : MonoBehaviour
     {
         StarCsvIndices starIdx = new StarCsvIndices();
         ConstCsvIndices constIdx = new ConstCsvIndices();
-        LinkCsvIndices linkIdx = new LinkCsvIndices();
+        //LinkCsvIndices linkIdx = new LinkCsvIndices();
+
+        //Lines CSVs:
+
+        //1 - proper constellation lines
+        //https://github.com/MarcvdSluys/ConstellationLines?tab=readme-ov-file
+        //uses ID as YALE BRIGHT STAR CATALOGUE //"constellations.csv";
+        LineCsvIndices linkIdx = new LineCsvIndices("ConstellationLines.csv");
+
+        //2 - asterisms
+        LineCsvIndices astIdx = new LineCsvIndices("AsterismLines.csv");
+
+        //3 - additional geometries (how to navigate using the stars)
+        LineCsvIndices geomIdx = new LineCsvIndices("GeometryLines.csv");
 
         string starsCsvPath = Path.Combine(Application.streamingAssetsPath, "csv", starIdx.fileName);
         string constDataCsvPath = Path.Combine(Application.streamingAssetsPath, "csv", constIdx.fileName);
@@ -373,9 +411,12 @@ public class StarDatabase : MonoBehaviour
                 info.engName = ObfuscateString(data[constIdx.engName]);
                 info.meaning = ObfuscateString(data[constIdx.mean], xorKey);
                 info.hemisphere = ObfuscateString(data[constIdx.hemisph], xorKey);
+                //type and color will be retrieved after
                 constellationDict.Add(info.id, info);
             }
         }
+
+        CustomLogger.Log($"caricamento costellazioni: {constellationDict.Count}");
 
         // 2. Parse Stars CSV
         string[] starLines = File.ReadAllLines(starsCsvPath);
@@ -426,7 +467,7 @@ public class StarDatabase : MonoBehaviour
             }                
         }
 
-        //check for binaries?
+        //check for binaries TBD refinition
         foreach (var star in starDict)
         {
             if (star.Value.binMain != 0 && star.Value.binMain != star.Value.id && star.Value.binInd > 1)
@@ -444,81 +485,127 @@ public class StarDatabase : MonoBehaviour
             }
         }
 
+        CustomLogger.Log($"caricamento stelle: {starDict.Count}");
+
         if (missedStars > 0)
             CustomLogger.LogWarning("Massimo di stelle raggiunto a " + maxStars.ToString() + " mancherebbero " + missedStars.ToString());
+        // 3. Parse Links local function
 
-        // 3. Parse Constellation Links CSV
-        string[] linkLines = File.ReadAllLines(constLinksCsvPath);
-        string[] linkHeader = linkLines[0].Split(linkIdx.separator);
-
-        MapHeaderIndices(linkHeader, linkIdx.indices);
-
-        if (!linkIdx.IsValid())
+        uint ParseLinks(string path, LineCsvIndices indices, LinkType type)
         {
-            CustomLogger.LogError("Formato " + linkIdx.fileName + " non valido: manca " + linkIdx.keyNotValid());
-            return false;
-        }
+            string[] linkLines = File.ReadAllLines(path);
+            string[] linkHeader = linkLines[0].Split(indices.separator);
 
-        uint lineCount = 0;
-        uint startStarHr = 0; uint endStarHr = 0;
+            MapHeaderIndices(linkHeader, indices.indices);
 
-        for (uint i = 1; i < linkLines.Length; i++)
-        {
-            string[] data = linkLines[i].Split(linkIdx.separator);
-            if (data.Length >= linkIdx.indices.Count)
-            {   
-                lineCount = uint.Parse(data[linkIdx.num]);
-                string cName = ObfuscateString(data[linkIdx.id].ToUpper());
-#if UNITY_EDITOR
-                string altName = ObfuscateString(cName); //debug only
-                //cName = altName;
-#endif
-                if (!constellationDict.ContainsKey(cName)) //filter by constellation
-                    continue; //next line
+            if (!indices.IsValid(type))
+            {
+                CustomLogger.LogError("Formato " + indices.fileName + " non valido: manca " + indices.keyNotValid());
+                return 0;
+            }
 
-                StarData startStar;
-                StarData endStar;
-                for (uint startId = 1; startId < lineCount; startId++)
+            uint lineCount = 0;
+            uint counter = 0;
+            string color = "000000";
+            uint startStarHr = 0; uint endStarHr = 0;
+
+            for (uint i = 1; i < linkLines.Length; i++)
+            {
+                string[] data = linkLines[i].Split(indices.separator);
+                if (data.Length >= indices.indices.Count)
                 {
-                    startStarHr = uint.Parse(data[linkIdx.num + startId]);
-                    //if (!starDict.ContainsKey(startStar)) now hr is not key
-                    startStar = starDict.Values.FirstOrDefault(s => s.hr == startStarHr);
-                    if (startStar == null)
-                        continue; //advance index
-
-                    //check for a real endline to not miss lines for missing stars
-                    uint endId = startId; //because +1 will be added next line
-                    do
+                    lineCount = uint.Parse(data[indices.num]);
+                    string cName = ObfuscateString(data[indices.id].ToUpper());
+#if UNITY_EDITOR
+                    string altName = ObfuscateString(cName); //debug only
+                                                             //cName = altName;
+#endif
+                    if (indices.col > 0)
                     {
-                        endId++;
-                        endStarHr = uint.Parse(data[linkIdx.num + endId]);
-                        endStar = starDict.Values.FirstOrDefault(s => s.hr == endStarHr);
-                        if (endStar != null) //valid line found
-                            break;
-                    } 
-                    while (endId < lineCount);
-
-                    if (startStar == null || endStar == null)
-                        continue; //collapsed line, unneded safety check
-
-                    if (startStar.hr == endStar.hr)
-                        continue; //collapsed line, unneded safety check
-
-                    if (startStarHr == 0 || endStarHr == 0)
-                        continue; //invalid id
-
-                    //add only referenced stars
-                    if (starDict.ContainsKey(startStar.id) && starDict.ContainsKey(endStar.id)) //redundant check
-                    {
-                        ConstellationLink link = new ConstellationLink();
-                        link.constellationId = cName;
-                        link.startId = startStar.id;
-                        link.endId = endStar.id;
-                        linkList.Add(link);
+                        color = ObfuscateString(data[indices.col].ToUpper());
                     }
+                        
+                    if (!constellationDict.ContainsKey(cName)) //filter by constellation
+                        continue; //next line
+                    else
+                    {
+                        //update properties
+                        constellationDict[cName].type = type;
+                        constellationDict[cName].color = ObfuscateString(color, xorKey); ;
+                    }
+
+                    StarData startStar;
+                    StarData endStar;
+                    for (uint startId = 1; startId < lineCount; startId++)
+                    {
+                        startStarHr = uint.Parse(data[indices.num + startId]);
+                        //if (!starDict.ContainsKey(startStar)) now hr is not key
+                        startStar = starDict.Values.FirstOrDefault(s => s.hr == startStarHr);
+                        if (startStar == null)
+                            continue; //advance index
+
+                        //check for a real endline to not miss lines for missing stars
+                        uint endId = startId; //because +1 will be added next line
+                        do
+                        {
+                            endId++;
+                            endStarHr = uint.Parse(data[indices.num + endId]);
+                            endStar = starDict.Values.FirstOrDefault(s => s.hr == endStarHr);
+                            if (endStar != null) //valid line found
+                                break;
+                        }
+                        while (endId < lineCount);
+
+                        if (startStar == null || endStar == null)
+                            continue; //collapsed line, unneded safety check
+
+                        if (startStar.hr == endStar.hr)
+                            continue; //collapsed line, unneded safety check
+
+                        if (startStarHr == 0 || endStarHr == 0)
+                            continue; //invalid id
+
+                        //add only referenced stars
+                        if (starDict.ContainsKey(startStar.id) && starDict.ContainsKey(endStar.id)) //redundant check
+                        {
+                            StarLinksItem link = new StarLinksItem();
+                            link.identifier = cName;
+                            link.startId = startStar.id;
+                            link.endId = endStar.id;
+                            linkList.Add(link);
+                        }
+                    }
+                    ++counter;
                 }
             }
+
+            return counter;
         }
+
+        uint lines;
+        // 3A. Parse Constellations
+        lines = ParseLinks(constLinksCsvPath, linkIdx, LinkType.CONSTELLATION);
+        if (lines > 0)
+            CustomLogger.Log($"[DB-W] elaborazione costellazioni: {lines}");
+
+        // 3B. Parse Asterism and Geometries
+        string asterismCsvPath = Path.Combine(Application.streamingAssetsPath, "csv", astIdx.fileName);
+        string geometriesCsvPath = Path.Combine(Application.streamingAssetsPath, "csv", geomIdx.fileName);
+
+        if (!File.Exists(asterismCsvPath) || !File.Exists(geometriesCsvPath))
+        {
+            CustomLogger.LogWarning("Impossibile trovare i file CSV di asterismi o geometrie");
+        }
+
+        lines = ParseLinks(asterismCsvPath, linkIdx, LinkType.ASTERISM);
+        if (lines > 0)
+            CustomLogger.Log($"[DB-W] elaborazione asterismi: {lines}");
+
+        lines = ParseLinks(geometriesCsvPath, linkIdx, LinkType.GEOMETRY);
+        if (lines > 0)
+            CustomLogger.Log($"[DB-W] elaborazione geometrie: {lines}");
+
+        CustomLogger.Log($"[DB-W] totale linee elaborate: {linkList.Count}");
 
         // --- SAVING .DAT binary file ---
         using (BinaryWriter writer = new BinaryWriter(File.Open(datFilePath, FileMode.Create)))
@@ -557,6 +644,8 @@ public class StarDatabase : MonoBehaviour
                 writer.Write(kvp.Value.engName);
                 writer.Write(kvp.Value.meaning);
                 writer.Write(kvp.Value.hemisphere);
+                writer.Write((byte)kvp.Value.type);
+                writer.Write(kvp.Value.color);
             }
 
             // Constellation lines
@@ -564,7 +653,7 @@ public class StarDatabase : MonoBehaviour
             CustomLogger.Log($"[DB-W] scrittura linee: {linkList.Count}");
             foreach (var link in linkList)
             {
-                writer.Write(link.constellationId);
+                writer.Write(link.identifier);
                 writer.Write(link.startId);
                 writer.Write(link.endId);
             }
