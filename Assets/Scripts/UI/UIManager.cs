@@ -116,7 +116,9 @@ public class UIManager : MonoBehaviour
         }
 #endif
         if (isInMenu && Input.anyKeyDown && 
-            !Input.GetMouseButtonDown(0) && !Input.GetMouseButtonDown(1) && !Input.GetMouseButtonDown(2))
+            !Input.GetMouseButtonDown((int)CmdMapper.MouseButton.MOUSE_LEFT) && 
+            !Input.GetMouseButtonDown((int)CmdMapper.MouseButton.MOUSE_RIGHT) && 
+            !Input.GetMouseButtonDown((int)CmdMapper.MouseButton.MOUSE_WHEEL_CLICK))
         {
             if (!Input.GetKeyDown(KeyCode.Tab) && !Input.GetKeyDown(KeyCode.Escape))
             {
@@ -374,9 +376,10 @@ public class UIManager : MonoBehaviour
         cmndsText.text =
             "Mouse sinistro/destro: scopri/nascondi costellazione\n" +
             "W, A, S, D: Muovi la visuale\n" +
-            "Q, E: Fai scorrere il tempo (Ruota il cielo)\n" +
+            "Rotella del mouse (click): Trascina la visuale\n" +
             "C, X: Zoom Avanti e Indietro\n" +
             "Rotella del mouse: Zoom Avanti e Indietro\n" +
+            "Q, E: Fai scorrere il tempo (Ruota il cielo)\n" +
             "I: Inquinamento luminoso ON/OFF\n" +
             "R: Resetta la vista\n";
 
@@ -398,8 +401,9 @@ public class UIManager : MonoBehaviour
         cmndsText.text =
             "Left/right click: reveal/hide constellation\n" +
             "W, A, S, D: Move view\n" +
-            "Q, E: Advance/Rewind time (Rotate sky)\n" +
+            "Mouse Wheel (click): Drag view\n" +
             "C, X, Mouse Wheel: Zoom In and Out\n" +
+            "Q, E: Advance/Rewind time (Rotate sky)\n" +
             "I: Toggle light pollution\n" +
             "R: Reset view\n";
 

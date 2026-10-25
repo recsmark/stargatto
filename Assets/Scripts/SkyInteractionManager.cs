@@ -1,7 +1,8 @@
-﻿using UnityEngine;
-using TMPro; // TextMeshPro
-using System; //dateTime
+﻿using System; //dateTime
 using System.Globalization;
+using System.Security.Cryptography.X509Certificates;
+using TMPro; // TextMeshPro
+using UnityEngine;
 
 public class SkyInteractionManager : MonoBehaviour
 {
@@ -25,13 +26,6 @@ public class SkyInteractionManager : MonoBehaviour
 
     private string currentHoveredConstellation = "";
     private AppLanguage currentLanguage = AppLanguage.Italian; //see UIManager
-
-    private enum MouseButton //Enum missing in Unity???
-    {
-        MOUSE_LEFT = 0,
-        MOUSE_RIGHT = 1,
-        MOUSE_WHEEL_CLICK = 2
-    }
 
     void Update()
     {
@@ -113,6 +107,10 @@ public class SkyInteractionManager : MonoBehaviour
                     {
                         string fullName = currentLanguage == AppLanguage.Italian ? starGenerator.database.constellationDict[constId].itaName
                              : starGenerator.database.constellationDict[constId].itaName;
+#if UNITY_EDITOR || DEVELOPMENT_BUILD //development build only when builds
+                        //add line name
+                        fullName = objName;
+#endif
                         ShowTooltip(fullName, true);
                     }
                     else
@@ -122,7 +120,7 @@ public class SkyInteractionManager : MonoBehaviour
                 }
 
                 // Discover lines by left click
-                if (Input.GetMouseButtonDown((int)MouseButton.MOUSE_LEFT))
+                if (Input.GetMouseButtonDown((int)CmdMapper.MouseButton.MOUSE_LEFT))
                 {
                     if (!starGenerator.visibleConstellations.Contains(constId))
                     {
@@ -133,7 +131,7 @@ public class SkyInteractionManager : MonoBehaviour
                     OpenDetailsPanel(constId, "Constellation");
                 }
                 //hide lines by right click
-                else if (Input.GetMouseButtonDown((int)MouseButton.MOUSE_RIGHT))
+                else if (Input.GetMouseButtonDown((int)CmdMapper.MouseButton.MOUSE_RIGHT))
                 {
                     if (starGenerator.visibleConstellations.Contains(constId))
                     {
@@ -181,7 +179,7 @@ public class SkyInteractionManager : MonoBehaviour
         }
 #if UNITY_EDITOR || DEVELOPMENT_BUILD //development build only when builds
         //add id to catch quick an draw missing lines in development
-        starName += "_" + star.id.ToString();
+        starName += "_" + star.hr.ToString(); //use hr to faster check lines 
 #endif
         string textToShow = starName + "\nm " + star.mag.ToString("0.00") + "\n" + (star.dist * PC_TO_LYEAR).ToString("0.00");
 
