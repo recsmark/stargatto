@@ -43,7 +43,8 @@ public class ConstellationInfo //TBD csv ES
     public string meaning;
     public string hemisphere;
     public LinkType type = LinkType.NO_LINK_TYPE;
-    public string color = "000000"; //no color
+    public string colorStr = "000000"; //no color
+    public Color color = Color.clear; //no color
 }
 
 public class StarLinksItem
@@ -316,7 +317,18 @@ public class StarDatabase : MonoBehaviour
                     info.meaning = ObfuscateString(reader.ReadString(), xorKey);
                     info.hemisphere = ObfuscateString(reader.ReadString(), xorKey);
                     info.type       = (LinkType) reader.ReadByte();
-                    info.color      = ObfuscateString(reader.ReadString(), xorKey);
+                    info.colorStr = ObfuscateString(reader.ReadString(), xorKey);
+                    if (info.type is LinkType.ASTERISM or LinkType.GEOMETRY)
+                    {
+                        //Trim() removes invisible \n o \r
+                        if (!ColorUtility.TryParseHtmlString(info.colorStr.Trim(), out Color tempColor))
+                        {
+                            info.color = Color.clear; //protection
+                        }
+                        else
+                            info.color = tempColor;
+                    }
+
 
                     constellationDict.Add(info.id, info);
                 }
@@ -531,7 +543,7 @@ public class StarDatabase : MonoBehaviour
                     {
                         //update properties
                         constellationDict[cName].type = type;
-                        constellationDict[cName].color = ObfuscateString(color, xorKey); ;
+                        constellationDict[cName].colorStr = ObfuscateString(color, xorKey); ;
                     }
 
                     StarData startStar;
@@ -645,7 +657,7 @@ public class StarDatabase : MonoBehaviour
                 writer.Write(kvp.Value.meaning);
                 writer.Write(kvp.Value.hemisphere);
                 writer.Write((byte)kvp.Value.type);
-                writer.Write(kvp.Value.color);
+                writer.Write(kvp.Value.colorStr);
             }
 
             // Constellation lines

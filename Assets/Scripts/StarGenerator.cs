@@ -244,6 +244,8 @@ public class StarGenerator : MonoBehaviour
 
     void GenerateProjectedStar(ref StarData star)
     {
+        //APPLY STEREOGRAPHIC PROJECTION
+
         //star.name argument?
         if (!star.mainStar)
             return; //do not draw
@@ -254,13 +256,54 @@ public class StarGenerator : MonoBehaviour
         float x = Mathf.Cos(decRad) * Mathf.Cos(raRad);
         float y = Mathf.Cos(decRad) * Mathf.Sin(raRad);
         float z = Mathf.Sin(decRad);
+        Vector3 starC = new Vector3(x, y, z);
 
-        float denominator = 1.0f + z; //for the S emishpere, use 1 - z!
+#if ZENITAL_PROJECTION
+        //in case of oblique/zenital stereographical projection depending on observer on Earth
+        float lat = 0f; //latitude TBD
+        float lst = 0f; //LST local sidereal time TBD = ZenithCalculator.CalculateRA0(currentTimeUTC, observerLon);
+
+        float dec0Rad = lat * Mathf.Deg2Rad;
+        float ra0Rad = lst * Mathf.Deg2Rad;
+
+        // local Z: Zenit vector
+        Vector3 zenithDir = new Vector3(
+            Mathf.Cos(dec0Rad) * Mathf.Cos(ra0Rad),
+            Mathf.Cos(dec0Rad) * Mathf.Sin(ra0Rad),
+            Mathf.Sin(dec0Rad)
+        );
+
+        // local X: towards East
+        Vector3 eastDir = new Vector3(
+            -Mathf.Sin(ra0Rad),
+             Mathf.Cos(ra0Rad),
+             0f
+        );
+
+        // local Y: towards North, orthogonal with X and Z 
+        Vector3 northDir = new Vector3(
+            -Mathf.Sin(dec0Rad) * Mathf.Cos(ra0Rad),
+            -Mathf.Sin(dec0Rad) * Mathf.Sin(ra0Rad),
+             Mathf.Cos(dec0Rad)
+        );
+
+        // Set a rotation Matrix within the new System
+        Matrix4x4 R = new Matrix4x4();
+        R.SetRow(0, eastDir);    // X 
+        R.SetRow(1, northDir);   // Y 
+        R.SetRow(2, zenithDir);  // Z
+        R.SetRow(3, new Vector4(0, 0, 0, 1));
+
+        //update ref
+        starC = R.MultiplyPoint3x4(starC);
+#endif
+
+        float denominator = 1.0f + starC.z; //for the S emishpere, use 1 - z!
         if (denominator < 0.001f) return;
 
         // -x adjust the perspective from the main camera
-        float projectedX = -x / denominator;
-        float projectedY = y / denominator;
+        float projectedX = -starC.x / denominator;
+        float projectedY = starC.y / denominator;
 
         Vector3 finalPosition = new Vector3(projectedX * projectionScale, projectedY * projectionScale, 0f);
 
@@ -271,7 +314,7 @@ public class StarGenerator : MonoBehaviour
         float starScale = CalculateStarScale(star.mag);
         newStar.transform.localScale = new Vector3(starScale, starScale, 1f);
 
-        newStar.name = $"Star_{star.id}"; 
+        newStar.name = $"Star_{star.id}";
 
         //Renderer and collider properties
         SpriteRenderer starRenderer = newStar.GetComponent<SpriteRenderer>();
@@ -327,8 +370,15 @@ public class StarGenerator : MonoBehaviour
                                  float startRadius, float endRadius, 
                                  StarLinksItem link, LinkType type)
     {
+#if UNITY_EDITOR || DEVELOPMENT_BUILD //development build only when builds
+        //in debug use hr for label a line to better inspect line file
+        uint hr1 = database.starDict[link.startId].hr;
+        uint hr2 = database.starDict[link.endId].hr;
+        GameObject lineObj = new GameObject($"Line_{link.identifier}_{hr1}_{hr2}");
+#else
         // Formatted name, unique name since includes star id "Line_@const_star1_star2"
         GameObject lineObj = new GameObject($"Line_{link.identifier}_{link.startId}_{link.endId}");
+#endif
         lineObj.transform.SetParent(starContainer);
         lineObj.transform.localPosition = Vector3.zero;
         lineObj.transform.localRotation = Quaternion.identity;
@@ -444,9 +494,16 @@ public class StarGenerator : MonoBehaviour
 
     Color DetermineColor(string constId, bool isGlowing = false)
     {
+        //no needed checks of constId in constellationDict like Contains
+        Color baseColor = database.constellationDict[constId].color;
+        LinkType type = database.constellationDict[constId].type;
+        if (baseColor != null && baseColor != Color.clear) //if baseColor already determined, use baseColor
+        {
+            return isGlowing ? Color.Lerp(baseColor, Color.white, 0.4f) : baseColor;
+        }
         //return isGlowing ? glowColor : normalColor;
 
-        return database.constellationDict[constId].type switch
+        return type switch
         {
             LinkType.NO_LINK_TYPE => Color.clear,
             LinkType.CONSTELLATION => isGlowing ? glowColor : normalColor,
@@ -464,7 +521,6 @@ public class StarGenerator : MonoBehaviour
             //geometry can't be discovered or uncovered
             if (database.constellationDict[constId].type == LinkType.GEOMETRY)
                 continue;
-
 
             if (constellationLines.ContainsKey(constId))
             {
