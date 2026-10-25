@@ -22,7 +22,8 @@ public class StarGenerator : MonoBehaviour
 
     [Header("Impostazioni Linee e Interazioni")]
     public float lineWidth = 0.1f;
-    public Material lineMaterial;
+    public Material constellationMaterial;
+    public Material geometryMaterial;
     Material lineBaseMaterial;
 
     // I tre stati di colore per le linee
@@ -305,7 +306,7 @@ public class StarGenerator : MonoBehaviour
         float projectedX = -starC.x / denominator;
         float projectedY = starC.y / denominator;
 
-        Vector3 finalPosition = new Vector3(projectedX * projectionScale, projectedY * projectionScale, 0f);
+        Vector3 finalPosition = new Vector3(projectedX * projectionScale, projectedY * projectionScale, -star.mag);
 
         GameObject newStar = Instantiate(starPrefab, starContainer);
         // localPosition should follow future rotations
@@ -322,7 +323,7 @@ public class StarGenerator : MonoBehaviour
         if (starMatReference != null)
         starRenderer.sharedMaterial = starMatReference;
         //--end shader
-        CircleCollider2D col = newStar.AddComponent<CircleCollider2D>();
+        CircleCollider2D collider = newStar.AddComponent<CircleCollider2D>();
         if (starRenderer != null)
         {
             starRenderer.sortingOrder = 1; //the greater the nearer
@@ -334,7 +335,7 @@ public class StarGenerator : MonoBehaviour
                 starRenderer.color = Color.green;
             }
 #endif
-            col.radius = 2 * starRenderer.bounds.extents.x;  //CalculateStarRadius(magnitude, starRenderer);
+            collider.radius = 2 * starRenderer.bounds.extents.x;  //CalculateStarRadius(magnitude, starRenderer);
         }
        
         instantiatedStars.Add(star.id, newStar);
@@ -391,8 +392,10 @@ public class StarGenerator : MonoBehaviour
         lr.startWidth = lineWidth;
         lr.endWidth = lineWidth;
 
-        if (lineMaterial != null && type == LinkType.CONSTELLATION)
-            lr.sharedMaterial = lineMaterial;
+        if (constellationMaterial != null && type == LinkType.CONSTELLATION)
+            lr.sharedMaterial = constellationMaterial;
+        else if (geometryMaterial != null && (type is LinkType.ASTERISM or LinkType.GEOMETRY))
+            lr.sharedMaterial = geometryMaterial;
         else if (lineBaseMaterial != null)
             lr.sharedMaterial = lineBaseMaterial;
 
