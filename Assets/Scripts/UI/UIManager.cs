@@ -24,7 +24,7 @@ public class UIManager : MonoBehaviour
     public GameObject webStartPanel;
 
     [Header("Lingua")]
-    public AppLanguage currentLanguage = AppLanguage.Italian;
+    private AppLanguage currentLanguage = AppLanguage.Italian;
 
     [Header("Audio")]
     public AudioSource audioPlayer;      
@@ -72,6 +72,23 @@ public class UIManager : MonoBehaviour
         get
         {
             return Application.version;
+        }
+    }
+
+    public AppLanguage CurrentLanguage { get => currentLanguage; }
+
+    //Singleton pattern
+    public static UIManager Instance { get; private set; }
+    private void Awake()
+    {
+        // 2. Quando l'oggetto nasce, si auto-assegna a questa variabile globale
+        if (Instance == null)
+        {
+            Instance = this;
+        }
+        else
+        {
+            Destroy(gameObject); // Distrugge eventuali cloni indesiderati
         }
     }
 

@@ -224,11 +224,11 @@ public class SkyInteractionManager : MonoBehaviour
         float rotationH = skyContainer.SkyRotationUTC; //gives delta between current and UTC (+ sky rotation)
         DateTime currentDate = validator?.GetDate() ?? DateTime.UtcNow;
         //using AddHours make the object a TimeSpan, so the new format is needed
-        upperText.text = currentDate.AddHours(rotationH).TimeOfDay.ToString(@"hh\:mm\:ss"); //current SIDEREAL time = UTC + rotation
-        if (currentLanguage == AppLanguage.Italian)
-            upperText.text += " UTC / Cielo posizionato @ Long. ";
-        else
-            upperText.text += " UTC / Sky positioned @ Long. ";
+        upperText.text = currentDate.AddHours(rotationH).TimeOfDay.ToString(@"hh\:mm\:ss") + " UTC"; //current SIDEREAL time = UTC + rotation
+        //if (currentLanguage == AppLanguage.Italian)
+        //    upperText.text += " UTC";
+        //else
+        //    upperText.text += " UTC";
 
         /*ParseExact(
                                "ddd, dd MMM yyyy HH:mm:ss 'GMT'",

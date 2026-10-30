@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="512" height="512">
+  <!-- 
+    g = raggruppa gli elementi applicando a tutti lo stesso stile:
+    nessun riempimento, linea bianca, spessore 6, bordi e giunture arrotondate
+  -->
+  <g fill="none" stroke="white" stroke-width="6" stroke-linecap="round" stroke-linejoin="round">
+    
+    <!-- Stella a 5 punte perfettamente centrata -->
+    <path d="M 50 28 
+             L 54.9 41.5 L 69.0 41.5 
+             L 57.6 50.1 L 61.9 63.6 
+             L 50.0 55.3 L 38.1 63.6 
+             L 42.4 50.1 L 31.0 41.5 
+             L 45.1 41.5 Z" />
+             
+    <!-- Freccia circolare (Da in alto al centro fino a sinistra al centro, in senso orario) -->
+    <path d="M 50 14 A 36 36 0 1 1 14 50" />
+    
+    <!-- Punta della freccia -->
+    <path d="M 4 61 L 14 50 L 24 61" />
+    
+  </g>
+</svg>

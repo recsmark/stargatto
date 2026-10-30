@@ -16,9 +16,16 @@ public class StarGenerator : MonoBehaviour
     public Transform starContainer;
     [SerializeField] private Material starMatReference;
 
+    [Header("Dati posizione")]
+    public LocationValidator locationValidator;
 
     [Header("Impostazioni Proiezione 2D")]
     public float projectionScale = 50f;
+
+    [Header("Componenti Astrolabio")]
+    public GameObject obscurer;
+    public GameObject horizonMask;
+    public GameObject horizon;
 
     [Header("Impostazioni Linee e Interazioni")]
     public float lineWidth = 0.1f;
@@ -207,6 +214,7 @@ public class StarGenerator : MonoBehaviour
     private float maxStarRadius = 1.0f; //default max value
 
     private float shrinkMargin = 0.8f; //for not overlap star and lines collider
+    private Matrix4x4 RMAT = new Matrix4x4();
 
     public bool skyRevealed => reveal;
 
@@ -220,14 +228,112 @@ public class StarGenerator : MonoBehaviour
         lineBaseMaterial = new Material(Shader.Find("Sprites/Default"));
     }
 
+    public void RecalcSky() //callback for UI
+    {
+        ClearSky();
+        GenerateSky();
+    }
+
+    public void RecalcLocalTransformation()
+    {
+        if (obscurer != null) 
+            obscurer.SetActive(true);
+        if (horizonMask != null)
+        {
+            horizonMask.SetActive(true);
+            HorizonController controller = horizonMask.GetComponent<HorizonController>();
+            if (controller != null)
+            {
+                controller.EquatorRadius = projectionScale;
+                //controller.UpdateHorizonMask(veraLatitudine);
+            }
+        }
+
+        if (horizon != null) 
+            horizon.SetActive(true);
+
+#if USE_ZENITAL_PROJECTION
+        //in case of oblique/zenital stereographical projection depending on observer on Earth
+        float lat = locationValidator.currentLatitude;
+        float lon = locationValidator.currentLongitude;
+        float lst = 0f; //LST local sidereal time TBD = ZenithCalculator.CalculateRA0(currentTimeUTC, lon);
+
+        float dec0Rad = lat * Mathf.Deg2Rad;
+        float ra0Rad = lst * Mathf.Deg2Rad;
+
+        // local Z: Zenit vector
+        Vector3 zenithDir = new Vector3(
+            Mathf.Cos(dec0Rad) * Mathf.Cos(ra0Rad),
+            Mathf.Cos(dec0Rad) * Mathf.Sin(ra0Rad),
+            Mathf.Sin(dec0Rad)
+        );
+
+        // local X: towards East
+        Vector3 eastDir = new Vector3(
+            -Mathf.Sin(ra0Rad),
+             Mathf.Cos(ra0Rad),
+             0f
+        );
+
+        // local Y: towards North, orthogonal with X and Z 
+        Vector3 northDir = new Vector3(
+            -Mathf.Sin(dec0Rad) * Mathf.Cos(ra0Rad),
+            -Mathf.Sin(dec0Rad) * Mathf.Sin(ra0Rad),
+             Mathf.Cos(dec0Rad)
+        );
+
+        // Set a rotation Matrix within the new System
+        RMAT.SetRow(0, eastDir);    // X 
+        RMAT.SetRow(1, northDir);   // Y 
+        RMAT.SetRow(2, zenithDir);  // Z
+        RMAT.SetRow(3, new Vector4(0, 0, 0, 1));
+#else
+        //pure sterographic projection, also RMAT not used
+        RMAT = Matrix4x4.identity;
+#endif
+    }
+
     public void GenerateSky() //callback for UI
     {
         if (skyGenerated) return; // generate once
-
+        RecalcLocalTransformation();
         LoadStars();
         DrawConstellations();
 
         skyGenerated = true;
+    }
+
+    public void ClearSky() //callback for UI
+    {
+        if (!skyGenerated) return; // clear once
+
+        foreach (var starPair in instantiatedStars)
+        {
+            if (starPair.Value != null)
+            {
+                Destroy(starPair.Value); // Destroy gameObject
+            }
+        }
+        // then clear
+        instantiatedStars.Clear();
+
+        foreach (var constellation in constellationLines)
+        {
+            List<LineRenderer> lines = constellation.Value;
+
+            foreach (LineRenderer line in lines)
+            {
+                if (line != null)
+                {
+                    //if Destroy line, would not clear gameObject
+                    Destroy(line.gameObject);
+                }
+            }
+        }
+
+        constellationLines.Clear();
+
+        skyGenerated = false;
     }
 
     void LoadStars()
@@ -259,46 +365,11 @@ public class StarGenerator : MonoBehaviour
         float z = Mathf.Sin(decRad);
         Vector3 starC = new Vector3(x, y, z);
 
-#if ZENITAL_PROJECTION
-        //in case of oblique/zenital stereographical projection depending on observer on Earth
-        float lat = 0f; //latitude TBD
-        float lst = 0f; //LST local sidereal time TBD = ZenithCalculator.CalculateRA0(currentTimeUTC, observerLon);
-
-        float dec0Rad = lat * Mathf.Deg2Rad;
-        float ra0Rad = lst * Mathf.Deg2Rad;
-
-        // local Z: Zenit vector
-        Vector3 zenithDir = new Vector3(
-            Mathf.Cos(dec0Rad) * Mathf.Cos(ra0Rad),
-            Mathf.Cos(dec0Rad) * Mathf.Sin(ra0Rad),
-            Mathf.Sin(dec0Rad)
-        );
-
-        // local X: towards East
-        Vector3 eastDir = new Vector3(
-            -Mathf.Sin(ra0Rad),
-             Mathf.Cos(ra0Rad),
-             0f
-        );
-
-        // local Y: towards North, orthogonal with X and Z 
-        Vector3 northDir = new Vector3(
-            -Mathf.Sin(dec0Rad) * Mathf.Cos(ra0Rad),
-            -Mathf.Sin(dec0Rad) * Mathf.Sin(ra0Rad),
-             Mathf.Cos(dec0Rad)
-        );
-
-        // Set a rotation Matrix within the new System
-        Matrix4x4 R = new Matrix4x4();
-        R.SetRow(0, eastDir);    // X 
-        R.SetRow(1, northDir);   // Y 
-        R.SetRow(2, zenithDir);  // Z
-        R.SetRow(3, new Vector4(0, 0, 0, 1));
-
+#if USE_ZENITAL_PROJECTION
         //update ref
-        starC = R.MultiplyPoint3x4(starC);
+        if (!RMAT.isIdentity)
+            starC = RMAT.MultiplyPoint3x4(starC);
 #endif
-
         float denominator = 1.0f + starC.z; //for the S emishpere, use 1 - z!
         if (denominator < 0.001f) return;
 
