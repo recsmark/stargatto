@@ -87,10 +87,12 @@ public class StarContainer : MonoBehaviour
     //Lat/Lon of Costigiola https://costigiola.it/dove-siamo/
     private const float initLatitude = 45.6f;  //[deg]
     private const float initLongitude = 14.6f; //[deg]
-    public float localLatitude => initLatitude;
-    public float localLongitude => initLongitude;
 
-    public DateValidator validator;
+    //private float currLatitude = initLatitude;
+    private float currLongitude = initLongitude;
+
+    public DateValidator dateValidator;
+    public LocationValidator locationValidator;
 
     // Example of complete setter-getter structure
     public float SkyRotationLST
@@ -112,13 +114,19 @@ public class StarContainer : MonoBehaviour
     {
         DateTime initDate = DateTime.UtcNow;
         Apply(initDate);
-        if (validator != null)
-            validator.OnDateSuccessfullyValidated += SetNewDate;
+        if (dateValidator != null)
+            dateValidator.OnDateSuccessfullyValidated += SetNewDate;
+
+        if (locationValidator != null)
+            locationValidator.OnLocSuccessfullyValidated += SetNewDate;
     }
 
     public void SetNewDate()
     {
-        DateTime dateRef = validator?.GetDate() ?? DateTime.UtcNow;
+        //currLatitude = locationValidator.currentLatitude; //not needed here?
+        currLongitude = locationValidator.currentLongitude;
+
+        DateTime dateRef = dateValidator?.GetDate() ?? DateTime.UtcNow;
         DateTime utcTime = DateTime.UtcNow;
         DateTime utc = dateRef.Date + utcTime.TimeOfDay; //mix date from validator with current time
         //transform.Rotate(Vector3.forward, -_deltaRotationHour);
@@ -130,7 +138,7 @@ public class StarContainer : MonoBehaviour
 
     private void Apply(DateTime dateRef)
     {
-        _initialRotationHour = SiderealMath.CalculateLocalSiderealAngle(localLongitude, dateRef);
+        _initialRotationHour = SiderealMath.CalculateLocalSiderealAngle(currLongitude, dateRef);
         _UTC_rotated -= _initialRotationHour; //instantiate difference, assuming the same speed
         ApplyRotation(_initialRotationHour);
 

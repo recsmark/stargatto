@@ -25,7 +25,7 @@ public class HorizonController : MonoBehaviour
 
     void Update()
     {
-        UpdateHorizonMask(testLatitude);
+        //UpdateHorizonMask(testLatitude);
     }
 
     public void UpdateHorizonMask(float latitude)

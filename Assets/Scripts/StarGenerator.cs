@@ -207,6 +207,7 @@ public class StarGenerator : MonoBehaviour
     }
 
     private bool skyGenerated = false;
+    private bool obscurerState = false; //astrolabe
     private ColorTable myPalette = new ColorTable();
     private ColorHelland myPaletteHelland = new ColorHelland();
 
@@ -226,6 +227,10 @@ public class StarGenerator : MonoBehaviour
             CustomLogger.LogError("StarDatabase non collegato o non caricato!");
         }
         lineBaseMaterial = new Material(Shader.Find("Sprites/Default"));
+
+
+        if (locationValidator != null)
+            locationValidator.OnLocSuccessfullyValidated += RecalcSky;
     }
 
     public void RecalcSky() //callback for UI
@@ -234,28 +239,37 @@ public class StarGenerator : MonoBehaviour
         GenerateSky();
     }
 
-    public void RecalcLocalTransformation()
+    public void ChangeObscurerState()
+    {
+        float latitude = locationValidator.currentLatitude;
+        float longitude = locationValidator.currentLongitude;
+
+        obscurerState = !obscurerState;
+        RecalcLocalTransformation(latitude, longitude);
+    }
+
+    public void RecalcLocalTransformation(float lat, float lon)
     {
         if (obscurer != null) 
-            obscurer.SetActive(true);
+            obscurer.SetActive(obscurerState);
+
         if (horizonMask != null)
         {
-            horizonMask.SetActive(true);
+            horizonMask.SetActive(obscurerState);
             HorizonController controller = horizonMask.GetComponent<HorizonController>();
             if (controller != null)
             {
                 controller.EquatorRadius = projectionScale;
-                //controller.UpdateHorizonMask(veraLatitudine);
+                controller.UpdateHorizonMask(lat);
             }
         }
 
         if (horizon != null) 
-            horizon.SetActive(true);
+            horizon.SetActive(obscurerState);
+
 
 #if USE_ZENITAL_PROJECTION
         //in case of oblique/zenital stereographical projection depending on observer on Earth
-        float lat = locationValidator.currentLatitude;
-        float lon = locationValidator.currentLongitude;
         float lst = 0f; //LST local sidereal time TBD = ZenithCalculator.CalculateRA0(currentTimeUTC, lon);
 
         float dec0Rad = lat * Mathf.Deg2Rad;
@@ -295,8 +309,13 @@ public class StarGenerator : MonoBehaviour
 
     public void GenerateSky() //callback for UI
     {
+        float latitude = locationValidator.currentLatitude;
+        float longitude = locationValidator.currentLongitude;
+
+        RecalcLocalTransformation(latitude, longitude);
+
         if (skyGenerated) return; // generate once
-        RecalcLocalTransformation();
+
         LoadStars();
         DrawConstellations();
 
@@ -370,7 +389,9 @@ public class StarGenerator : MonoBehaviour
         if (!RMAT.isIdentity)
             starC = RMAT.MultiplyPoint3x4(starC);
 #endif
-        float denominator = 1.0f + starC.z; //for the S emishpere, use 1 - z!
+        float denominator = locationValidator.currentLatitude >= 0 ? 
+                                1f + starC.z : //northern emisphere
+                                1f - starC.z;    //southern emisphere
         if (denominator < 0.001f) return;
 
         // -x adjust the perspective from the main camera
@@ -402,7 +423,7 @@ public class StarGenerator : MonoBehaviour
 #if DEBUG
             if (star.binCount > 0) //track binary sistem visually
             {
-                newStar.transform.localScale *= 5f;
+                //newStar.transform.localScale *= 5f;
                 starRenderer.color = Color.green;
             }
 #endif

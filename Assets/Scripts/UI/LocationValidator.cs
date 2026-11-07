@@ -1,3 +1,4 @@
+using System;
 using TMPro;
 using UnityEngine;
 
@@ -10,6 +11,8 @@ public class LocationValidator : MonoBehaviour
     [Header("Valori Validati")]
     public float currentLatitude = 45.5f;  // Default: Costigiola
     public float currentLongitude = 14.5f;
+
+    public Action OnLocSuccessfullyValidated;
 
     private void Start()
     {
@@ -43,14 +46,16 @@ public class LocationValidator : MonoBehaviour
     {
         currentLatitude = Mathf.Clamp(lat, -90f, 90f);
         string hemiSphere = currentLatitude >= 0 ? "° N" : "° S";
-        latInput.text = currentLatitude.ToString("F2") + hemiSphere;
+        latInput.text = Math.Abs(currentLatitude).ToString("F2") + hemiSphere;
+        OnLocSuccessfullyValidated?.Invoke();
     }
 
     private void SetLongitude(float lon)
     {
         currentLongitude = Mathf.Clamp(lon, -180f, 180f);
-        string hemiSphere = currentLatitude >= 0 ? "° E" : "° W";
-        lonInput.text = currentLongitude.ToString("F2") + hemiSphere;
+        string hemiSphere = currentLongitude >= 0 ? "° E" : "° W";
+        lonInput.text = Math.Abs(currentLongitude).ToString("F2") + hemiSphere;
+        OnLocSuccessfullyValidated?.Invoke();
     }
 
 }
