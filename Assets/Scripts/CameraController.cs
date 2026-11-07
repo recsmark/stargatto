@@ -46,13 +46,6 @@ public class CameraController : MonoBehaviour
 
     void Update()
     {
-        //CustomLogger.Log("Pointer on UI: " + EventSystem.current.IsPointerOverGameObject());
-        if (EventSystem.current.IsPointerOverGameObject())
-        {
-            // ignore inputs
-            return; //TBD
-        }
-
         //save wheel scroll
         float scrollInput = Input.GetAxis("Mouse ScrollWheel");
 
@@ -68,7 +61,7 @@ public class CameraController : MonoBehaviour
         // Normalizing so diagonal not greater than pure x or y speed
         Vector3 moveDirection = new Vector3(moveX, moveY, 0f).normalized;
 
-        if (Input.GetMouseButtonDown((int)CmdMapper.MouseButton.MOUSE_WHEEL_CLICK))
+        if (Input.GetMouseButtonDown((int)CmdMapper.MouseButton.MOUSE_WHEEL_CLICK)) //DOWN ONLY
         {
             // Save cursor position when click of wheel occurs
             dragOrigin = cam.ScreenToWorldPoint(Input.mousePosition);

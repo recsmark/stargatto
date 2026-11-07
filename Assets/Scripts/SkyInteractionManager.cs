@@ -3,6 +3,7 @@ using System.Globalization;
 using System.Security.Cryptography.X509Certificates;
 using TMPro; // TextMeshPro
 using UnityEngine;
+using UnityEngine.EventSystems;
 
 public class SkyInteractionManager : MonoBehaviour
 {
@@ -37,13 +38,19 @@ public class SkyInteractionManager : MonoBehaviour
         // 2. Convert mouse position
         Vector2 mousePosition = mainCamera.ScreenToWorldPoint(Input.mousePosition);
 
-        // 3. Calculat the hit with 2D "ray"
+        // 3. Calculate the hit with 2D "ray"
         Collider2D[] hits = Physics2D.OverlapPointAll(mousePosition);
         //Collider2D oldHit = Physics2D.OverlapPoint(mousePosition);
         Collider2D priorityHit = null;
 
         if (hits.Length > 0)
         {
+            if (EventSystem.current.IsPointerOverGameObject())
+            {
+                // ignore inputs, prevents discovering constellation under bars
+                return;
+            }
+
             // gives priority to star colliders (CircleCollider2D)
             foreach (Collider2D col in hits)
             {
