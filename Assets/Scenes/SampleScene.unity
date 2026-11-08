@@ -2937,16 +2937,31 @@ MonoBehaviour:
   iconStateBSet2: {fileID: 0}
   itaTextStateA: 'Proiezione Polare
 
-    Click per passare a  Zenitale'
+    Click per passare a Obliqua (Locale)'
   engTextStateA: 'Polar Projection
 
-    Click to use Zenithal Projection'
-  itaTextStateB: 'Proiezione Zenitale
+    Click to use (Local) Oblique Projection'
+  itaTextStateB: 'Proiezione Obliqua (Locale)
 
     Click per passare a  Polare'
-  engTextStateB: 'Zenithal Projection
+  engTextStateB: '(Local) Oblique Projection
 
     Click to use Polar Projection'
+  onChangeState:
+    m_PersistentCalls:
+      m_Calls:
+      - m_Target: {fileID: 1619849092}
+        m_TargetAssemblyTypeName: StarContainer, Assembly-CSharp
+        m_MethodName: EnableRotationFromProjection
+        m_Mode: 0
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
 --- !u!114 &642431962
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -3006,6 +3021,18 @@ MonoBehaviour:
       - m_Target: {fileID: 642431961}
         m_TargetAssemblyTypeName: BtnManager, Assembly-CSharp
         m_MethodName: ChangeState
+        m_Mode: 1
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
+      - m_Target: {fileID: 1270280170}
+        m_TargetAssemblyTypeName: StarGenerator, Assembly-CSharp
+        m_MethodName: ToggleProjection
         m_Mode: 1
         m_Arguments:
           m_ObjectArgument: {fileID: 0}
@@ -3501,7 +3528,7 @@ GameObject:
   - component: {fileID: 769319606}
   - component: {fileID: 769319605}
   m_Layer: 5
-  m_Name: UIText
+  m_Name: TimeLabel
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -4047,7 +4074,7 @@ GameObject:
   - component: {fileID: 913561715}
   - component: {fileID: 913561714}
   m_Layer: 5
-  m_Name: UIText2
+  m_Name: PositionLabel
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -5163,6 +5190,9 @@ MonoBehaviour:
 
     cielo non visibile'
   engTextStateB: "Click to show \nnon-visible sky"
+  onChangeState:
+    m_PersistentCalls:
+      m_Calls: []
 --- !u!114 &1117210964
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -5827,6 +5857,7 @@ MonoBehaviour:
   pollutionThreshold: 2
   totalConstellations: 0
   totalStars: 0
+  skyContainer: {fileID: 1619849092}
 --- !u!114 &1270280171
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -8422,6 +8453,9 @@ MonoBehaviour:
   engTextStateA: AGGIORNA
   itaTextStateB: 
   engTextStateB: 
+  onChangeState:
+    m_PersistentCalls:
+      m_Calls: []
 --- !u!1 &1835410242
 GameObject:
   m_ObjectHideFlags: 0

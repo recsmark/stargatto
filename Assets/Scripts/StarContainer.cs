@@ -94,6 +94,8 @@ public class StarContainer : MonoBehaviour
     public DateValidator dateValidator;
     public LocationValidator locationValidator;
 
+    private bool rotationEnabled = true;
+
     // Example of complete setter-getter structure
     public float SkyRotationLST
     {
@@ -119,6 +121,14 @@ public class StarContainer : MonoBehaviour
 
         if (locationValidator != null)
             locationValidator.OnLocSuccessfullyValidated += SetNewDate;
+    }
+
+    public void EnableRotationFromProjection(bool alternativeProj)
+    {
+        rotationEnabled = !alternativeProj;
+        SetNewDate();
+        _LST_hour = _initialRotationHour; //override
+        _UTC_rotated = 0;
     }
 
     public void SetNewDate()
@@ -147,6 +157,12 @@ public class StarContainer : MonoBehaviour
 
     public void ApplyRotation(float deltaTime, float speed = skyRotationSpeed)
     {
+        if (!rotationEnabled)
+        {
+            transform.localRotation = Quaternion.identity;
+            return;
+        }
+
         //float deltaAngle = deltaTime * speed;
         transform.Rotate(Vector3.forward, speed * deltaTime);
         _LST_hour += deltaTime;

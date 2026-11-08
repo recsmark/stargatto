@@ -1,5 +1,6 @@
 using TMPro;
 using UnityEngine;
+using UnityEngine.Events;
 using UnityEngine.EventSystems; // mouse input
 using UnityEngine.UI; //Image
 using UnityEngine.UIElements;
@@ -34,8 +35,10 @@ public class BtnManager : MonoBehaviour, IPointerEnterHandler, IPointerExitHandl
     [TextArea]
     public string engTextStateB;
 
-    private bool altState = true;  //will be changed to false at start
+    private bool altState = false;
     private bool altSet = false;
+
+    public UnityEvent<bool> onChangeState;
 
     //active icons
     private Sprite iconA;
@@ -49,7 +52,6 @@ public class BtnManager : MonoBehaviour, IPointerEnterHandler, IPointerExitHandl
     {
         altSet = hasAlternativeSet;  //will be changed to false at start
         ChangeSet();
-        ChangeState();
     }
 
     public void ChangeSet()
@@ -85,6 +87,7 @@ public class BtnManager : MonoBehaviour, IPointerEnterHandler, IPointerExitHandl
 
         altState = !altState;
         UpdateIcon();
+        onChangeState.Invoke(altState);
     }
 
     void UpdatePanel()

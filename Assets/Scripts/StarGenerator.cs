@@ -1,4 +1,6 @@
-﻿using System;
+﻿#define USE_ZENITHAL_PROJECTION //enable
+
+using System;
 using System.Collections.Generic;
 using System.Linq; // needed for search
 using System.Runtime.InteropServices.WindowsRuntime;
@@ -216,6 +218,8 @@ public class StarGenerator : MonoBehaviour
 
     private float shrinkMargin = 0.8f; //for not overlap star and lines collider
     private Matrix4x4 RMAT = new Matrix4x4();
+    public StarContainer skyContainer;
+    private bool absoluteProjection = true; 
 
     public bool skyRevealed => reveal;
 
@@ -231,6 +235,12 @@ public class StarGenerator : MonoBehaviour
 
         if (locationValidator != null)
             locationValidator.OnLocSuccessfullyValidated += RecalcSky;
+    }
+
+    public void ToggleProjection()
+    {
+        absoluteProjection = !absoluteProjection;
+        RecalcSky();
     }
 
     public void RecalcSky() //callback for UI
@@ -260,7 +270,7 @@ public class StarGenerator : MonoBehaviour
             if (controller != null)
             {
                 controller.EquatorRadius = projectionScale;
-                controller.UpdateHorizonMask(lat);
+                controller.UpdateHorizonMask(lat, !absoluteProjection);
             }
         }
 
@@ -268,43 +278,50 @@ public class StarGenerator : MonoBehaviour
             horizon.SetActive(obscurerState);
 
 
-#if USE_ZENITAL_PROJECTION
-        //in case of oblique/zenital stereographical projection depending on observer on Earth
-        float lst = 0f; //LST local sidereal time TBD = ZenithCalculator.CalculateRA0(currentTimeUTC, lon);
+#if USE_ZENITHAL_PROJECTION
+        if (!absoluteProjection)
+        {
+            //in case of oblique/zenital stereographical projection depending on observer on Earth
+            float lst = 0f;
+            if (skyContainer != null)
+                lst = skyContainer.SkyRotationLST*15f; //dependant on longitude, change hour in deg!
 
-        float dec0Rad = lat * Mathf.Deg2Rad;
-        float ra0Rad = lst * Mathf.Deg2Rad;
+            float dec0Rad = lat * Mathf.Deg2Rad;
+            float ra0Rad = lst * Mathf.Deg2Rad;
 
-        // local Z: Zenit vector
-        Vector3 zenithDir = new Vector3(
-            Mathf.Cos(dec0Rad) * Mathf.Cos(ra0Rad),
-            Mathf.Cos(dec0Rad) * Mathf.Sin(ra0Rad),
-            Mathf.Sin(dec0Rad)
-        );
+            // local Z: Zenit vector
+            Vector3 zenithDir = new Vector3(
+                Mathf.Cos(dec0Rad) * Mathf.Cos(ra0Rad),
+                Mathf.Cos(dec0Rad) * Mathf.Sin(ra0Rad),
+                Mathf.Sin(dec0Rad)
+            );
 
-        // local X: towards East
-        Vector3 eastDir = new Vector3(
-            -Mathf.Sin(ra0Rad),
-             Mathf.Cos(ra0Rad),
-             0f
-        );
+            // local X: towards East
+            Vector3 eastDir = new Vector3(
+                -Mathf.Sin(ra0Rad),
+                 Mathf.Cos(ra0Rad),
+                 0f
+            );
 
-        // local Y: towards North, orthogonal with X and Z 
-        Vector3 northDir = new Vector3(
-            -Mathf.Sin(dec0Rad) * Mathf.Cos(ra0Rad),
-            -Mathf.Sin(dec0Rad) * Mathf.Sin(ra0Rad),
-             Mathf.Cos(dec0Rad)
-        );
+            // local Y: towards North, orthogonal with X and Z 
+            Vector3 northDir = new Vector3(
+                -Mathf.Sin(dec0Rad) * Mathf.Cos(ra0Rad),
+                -Mathf.Sin(dec0Rad) * Mathf.Sin(ra0Rad),
+                 Mathf.Cos(dec0Rad)
+            );
 
-        // Set a rotation Matrix within the new System
-        RMAT.SetRow(0, eastDir);    // X 
-        RMAT.SetRow(1, northDir);   // Y 
-        RMAT.SetRow(2, zenithDir);  // Z
-        RMAT.SetRow(3, new Vector4(0, 0, 0, 1));
-#else
-        //pure sterographic projection, also RMAT not used
-        RMAT = Matrix4x4.identity;
+            // Set a rotation Matrix within the new System
+            RMAT.SetRow(0, eastDir);    // X 
+            RMAT.SetRow(1, northDir);   // Y 
+            RMAT.SetRow(2, zenithDir);  // Z
+            RMAT.SetRow(3, new Vector4(0, 0, 0, 1));
+        }
+        else
 #endif
+        {
+            //pure polar sterographic projection, also RMAT not used
+            RMAT = Matrix4x4.identity;
+        }
     }
 
     public void GenerateSky() //callback for UI
@@ -384,14 +401,16 @@ public class StarGenerator : MonoBehaviour
         float z = Mathf.Sin(decRad);
         Vector3 starC = new Vector3(x, y, z);
 
-#if USE_ZENITAL_PROJECTION
+#if USE_ZENITHAL_PROJECTION
         //update ref
         if (!RMAT.isIdentity)
+        {
             starC = RMAT.MultiplyPoint3x4(starC);
+        }
 #endif
-        float denominator = locationValidator.currentLatitude >= 0 ? 
+        float denominator = (locationValidator.currentLatitude >= 0 || !absoluteProjection) ? 
                                 1f + starC.z : //northern emisphere
-                                1f - starC.z;    //southern emisphere
+                                1f - starC.z;  //southern emisphere
         if (denominator < 0.001f) return;
 
         // -x adjust the perspective from the main camera
@@ -477,6 +496,7 @@ public class StarGenerator : MonoBehaviour
         lineObj.transform.localRotation = Quaternion.identity;
 
         LineRenderer lr = lineObj.AddComponent<LineRenderer>();
+        lr.alignment = LineAlignment.TransformZ; //block lines on 2D plane, not to rotate towards camera
 
         lr.positionCount = 2;
         lr.sortingOrder = -1; //the greater the nearer
@@ -538,7 +558,6 @@ public class StarGenerator : MonoBehaviour
                 visibleConstellations.Remove(constId); // Marked as not visible
         }
     }
-
 
     public void ToggleLightPollution()
     {
@@ -610,6 +629,8 @@ public class StarGenerator : MonoBehaviour
 
     public void ToggleReveal()
     {
+        if (!skyGenerated) return;
+
         reveal = !skyRevealed;
         foreach (var constId in database.constellationDict.Keys)
         {
@@ -634,6 +655,8 @@ public class StarGenerator : MonoBehaviour
 
     public void SetConstellationGlow(string constId, bool isGlowing)
     {
+        if (!skyGenerated) return;
+
         if (constellationLines.ContainsKey(constId) && (visibleConstellations.Contains(constId) || skyRevealed))
         {
             //geometry can't be discovered or uncovered
@@ -696,5 +719,3 @@ public class StarGenerator : MonoBehaviour
         return finalScale;
     }
 }
-
-

@@ -28,16 +28,17 @@ public class HorizonController : MonoBehaviour
         //UpdateHorizonMask(testLatitude);
     }
 
-    public void UpdateHorizonMask(float latitude)
+    public void UpdateHorizonMask(float latitude, bool relativeProj)
     {
         float safeLat = Mathf.Max(Mathf.Abs(latitude), 0.1f);
         float latRad = safeLat * Mathf.Deg2Rad;
 
         float radius = equatorRadius / Mathf.Sin(latRad);
         float yOffset = equatorRadius / Mathf.Tan(latRad);
-        if (latitude < 0) yOffset = -yOffset;
+        if (latitude < 0) 
+            yOffset = -yOffset;
 
-        float centerY = -yOffset;
+        float centerY = relativeProj ? 0 : -yOffset;
 
         // Move visible part
         transform.localPosition = new Vector3(0, centerY, 0);
@@ -66,6 +67,11 @@ public class HorizonController : MonoBehaviour
 
             horizonLine.SetPosition(i, new Vector3(x, y, 0));
         }
+#if UNITY_EDITOR
+        //Draw reference center
+        Vector2 centerPos = new Vector2(0f, centerY);
+        DrawCenterRef(centerPos);
+#endif
     }
 
     private void PositionCardinalPoints(float radius, float centerY)
@@ -80,6 +86,21 @@ public class HorizonController : MonoBehaviour
         if (eastLabel != null) 
             eastLabel.position = new Vector3(-radius - textPadding, centerY, 0);
         if (westLabel != null) 
-            westLabel.position = new Vector3(radius + textPadding, centerY, 0);
+            westLabel.position = new Vector3( radius + textPadding, centerY, 0);
     }
+
+#if UNITY_EDITOR
+    // Red X
+    private void DrawCenterRef(Vector2 pos, float size = 5f, float duration = 2f)
+    {
+        Vector3 topDx = new Vector3(pos.x + size, pos.y + size, 0);
+        Vector3 lowSx = new Vector3(pos.x - size, pos.y - size, 0);
+
+        Vector3 topSx = new Vector3(pos.x - size, pos.y + size, 0);
+        Vector3 lowDx = new Vector3(pos.x + size, pos.y - size, 0);
+
+        Debug.DrawLine(lowSx, topDx, Color.red, duration);
+        Debug.DrawLine(topSx, lowDx, Color.red, duration);
+    }
+#endif
 }
