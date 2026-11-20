@@ -92,9 +92,9 @@ public class CameraController : MonoBehaviour
             if (skyContainer != null)
             {
                 if (Input.GetKey(KeyCode.Q)) // ACW
-                    skyContainer.ApplyRotation(Time.deltaTime);
+                    skyContainer.ApplyRotation(Time.deltaTime, false);
                 if (Input.GetKey(KeyCode.E)) // ACW
-                    skyContainer.ApplyRotation(-Time.deltaTime);
+                    skyContainer.ApplyRotation(-Time.deltaTime, false);
             }
         }
         else if (scrollInput != 0f || // ---3.ZOOM(Mouse Wheel or keyboard)-- -
@@ -124,7 +124,7 @@ public class CameraController : MonoBehaviour
         }
     }
 
-    void ResetCamera()
+    public void ResetCamera()
     {
         transform.position = initialPosition;
         cam.orthographicSize = initialZoom;

@@ -115,7 +115,7 @@ public class StarContainer : MonoBehaviour
     public void Initialize()
     {
         DateTime initDate = DateTime.UtcNow;
-        Apply(initDate);
+        //Apply(initDate); will be called when lat/long will be initialized
         if (dateValidator != null)
             dateValidator.OnDateSuccessfullyValidated += SetNewDate;
 
@@ -128,7 +128,7 @@ public class StarContainer : MonoBehaviour
         rotationEnabled = !alternativeProj;
         SetNewDate();
         _LST_hour = _initialRotationHour; //override
-        _UTC_rotated = 0;
+        _UTC_rotated = 0; //TBD ?
     }
 
     public void SetNewDate()
@@ -140,22 +140,24 @@ public class StarContainer : MonoBehaviour
         DateTime utcTime = DateTime.UtcNow;
         DateTime utc = dateRef.Date + utcTime.TimeOfDay; //mix date from validator with current time
         //transform.Rotate(Vector3.forward, -_deltaRotationHour);
+        /*
         transform.eulerAngles = new Vector3(0f, 0f, 0f);
         _LST_hour = 0; //set again to 0 to proper init
         _UTC_rotated = 0;
-        Apply(utc);
+        */
+        Apply(utc, true);
     }
 
-    private void Apply(DateTime dateRef)
+    private void Apply(DateTime dateRef, bool absolute)
     {
         _initialRotationHour = SiderealMath.CalculateLocalSiderealAngle(currLongitude, dateRef);
         _UTC_rotated -= _initialRotationHour; //instantiate difference, assuming the same speed
-        ApplyRotation(_initialRotationHour);
+        ApplyRotation(_initialRotationHour, absolute);
 
         initialSkyRotation = transform.rotation;
     }
 
-    public void ApplyRotation(float deltaTime, float speed = skyRotationSpeed)
+    public void ApplyRotation(float deltaTime, bool absolute, float speed = skyRotationSpeed)
     {
         if (!rotationEnabled)
         {
@@ -164,11 +166,22 @@ public class StarContainer : MonoBehaviour
         }
 
         //float deltaAngle = deltaTime * speed;
-        transform.Rotate(Vector3.forward, speed * deltaTime);
-        _LST_hour += deltaTime;
-        _LST_hour %= 24f;
-        _UTC_rotated += deltaTime;
-        _UTC_rotated %= 24f;
+        if (absolute)
+        {
+            transform.rotation = Quaternion.Euler(0f, 0f, -speed * deltaTime);
+            _LST_hour = deltaTime;
+            _LST_hour %= 24f;
+            _UTC_rotated = deltaTime;
+            _UTC_rotated %= 24f;
+        }
+        else
+        {
+            transform.Rotate(Vector3.forward, speed * deltaTime);
+            _LST_hour += deltaTime;
+            _LST_hour %= 24f;
+            _UTC_rotated += deltaTime;
+            _UTC_rotated %= 24f;
+        }
     }
 
     public void ApplyReset()

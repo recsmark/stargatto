@@ -1,4 +1,4 @@
-﻿#define USE_ZENITHAL_PROJECTION //enable
+﻿#define USE_AZIMUTHAL_EQUIDISTANT //enable
 
 using System;
 using System.Collections.Generic;
@@ -12,6 +12,7 @@ public class StarGenerator : MonoBehaviour
 {
     [Header("Riferimenti Script")]
     public StarDatabase database;
+    public GridGenerator grid;
 
     [Header("Prefabs & Containers")]
     public GameObject starPrefab;
@@ -22,6 +23,7 @@ public class StarGenerator : MonoBehaviour
     public LocationValidator locationValidator;
 
     [Header("Impostazioni Proiezione 2D")]
+    [Range(0f, 100f)]
     public float projectionScale = 50f;
 
     [Header("Componenti Astrolabio")]
@@ -57,9 +59,9 @@ public class StarGenerator : MonoBehaviour
 
     // Discovered constellations
     public HashSet<string> visibleConstellations = new HashSet<string>();
-    public int totalConstellations;
-    public int totalStars;
-
+    public int totalConstellations { get; private set; } = 0;
+    public int totalStars { get; private set; } = 0;
+    public int totalVisiblelStars { get; private set; } = 0;
 
     // Colors
     private class ColorTable
@@ -249,6 +251,14 @@ public class StarGenerator : MonoBehaviour
         GenerateSky();
     }
 
+    public void SetObscurerState(bool active)
+    {
+        if (obscurerState != active)
+            ChangeObscurerState();
+        //else
+        //    return;
+    }
+
     public void ChangeObscurerState()
     {
         float latitude = locationValidator.currentLatitude;
@@ -267,7 +277,7 @@ public class StarGenerator : MonoBehaviour
         {
             horizonMask.SetActive(obscurerState);
             HorizonController controller = horizonMask.GetComponent<HorizonController>();
-            if (controller != null)
+            if (controller != null && obscurerState) //no need to recalc when not active
             {
                 controller.EquatorRadius = projectionScale;
                 controller.UpdateHorizonMask(lat, !absoluteProjection);
@@ -277,11 +287,10 @@ public class StarGenerator : MonoBehaviour
         if (horizon != null) 
             horizon.SetActive(obscurerState);
 
-
-#if USE_ZENITHAL_PROJECTION
         if (!absoluteProjection)
         {
-            //in case of oblique/zenital stereographical projection depending on observer on Earth
+            // in case of oblique stereographical projection or azimuthal equidistnt
+            // depending on observer on Earth
             float lst = 0f;
             if (skyContainer != null)
                 lst = skyContainer.SkyRotationLST*15f; //dependant on longitude, change hour in deg!
@@ -317,7 +326,6 @@ public class StarGenerator : MonoBehaviour
             RMAT.SetRow(3, new Vector4(0, 0, 0, 1));
         }
         else
-#endif
         {
             //pure polar sterographic projection, also RMAT not used
             RMAT = Matrix4x4.identity;
@@ -330,13 +338,24 @@ public class StarGenerator : MonoBehaviour
         float longitude = locationValidator.currentLongitude;
 
         RecalcLocalTransformation(latitude, longitude);
+        GridGenerator.ProjectionType type = absoluteProjection ? GridGenerator.ProjectionType.STHEREOGRAPHIC : GridGenerator.ProjectionType.EQ_AZIMUTHAL;
 
         if (skyGenerated) return; // generate once
 
-        LoadStars();
+        LoadStars(type);
         DrawConstellations();
 
+#if UNITY_EDITOR
+        grid.DrawGrid(projectionScale, latitude, type);
+#endif
         skyGenerated = true;
+
+        //when sky generated, maintain revealed lines when re-generating sky (e.g changing projection)
+        if (skyRevealed)
+        {
+            reveal = false;
+            ToggleReveal();
+        }            
     }
 
     public void ClearSky() //callback for UI
@@ -368,24 +387,28 @@ public class StarGenerator : MonoBehaviour
         }
 
         constellationLines.Clear();
+        grid.DeleteGrid();
 
         skyGenerated = false;
     }
 
-    void LoadStars()
+    void LoadStars(GridGenerator.ProjectionType type)
     {
         foreach (var kvp in database.starDict)
         {
             StarData star = kvp.Value;
-            GenerateProjectedStar(ref star);
+            GenerateProjectedStar(ref star, type);
         }
-        CustomLogger.Log($"Generazione completata: {instantiatedStars.Count} stelle create a schermo.");
 
         totalConstellations = database.constellationDict.Count;
         totalStars = database.starDict.Count;
+        //totalVisiblelStars = database.starDict.Values.Count(star => star.mainStar);
+        totalVisiblelStars = instantiatedStars.Count;
+
+        CustomLogger.Log($"Generazione completata: {totalVisiblelStars} stelle create a schermo.");
     }
 
-    void GenerateProjectedStar(ref StarData star)
+    void GenerateProjectedStar(ref StarData star, GridGenerator.ProjectionType type)
     {
         //APPLY STEREOGRAPHIC PROJECTION
 
@@ -396,26 +419,50 @@ public class StarGenerator : MonoBehaviour
         float raRad = star.ra * 15f * Mathf.Deg2Rad; //from RA in hours
         float decRad = star.dec * Mathf.Deg2Rad;
 
+        float projectedX; float projectedY; //final coordinates
+
         float x = Mathf.Cos(decRad) * Mathf.Cos(raRad);
         float y = Mathf.Cos(decRad) * Mathf.Sin(raRad);
         float z = Mathf.Sin(decRad);
         Vector3 starC = new Vector3(x, y, z);
 
-#if USE_ZENITHAL_PROJECTION
+#if USE_AZIMUTHAL_EQUIDISTANT
         //update ref
+        if (type == GridGenerator.ProjectionType.EQ_AZIMUTHAL)
+        {
+            starC = RMAT.MultiplyPoint3x4(starC);
+
+            //LOCAL PROJECION:
+            //Applying AZIMUTHAL EQUIDISTANT PROJECTION
+            //if (starC.z < -10f) //exclude stars below horizon, but maintain to complete constellations
+            //    return;
+
+            float zenithDistanceNormalized = Mathf.Acos(starC.z) * 2f / Mathf.PI;
+
+            float angleOnPlane = Mathf.Atan2(starC.y, starC.x);
+            // -x adjust the perspective from the main camera
+            projectedX = -zenithDistanceNormalized * Mathf.Cos(angleOnPlane);
+            projectedY = zenithDistanceNormalized * Mathf.Sin(angleOnPlane);
+        }
+        else
+#else
         if (!RMAT.isIdentity)
         {
             starC = RMAT.MultiplyPoint3x4(starC);
-        }
+        } //not else
 #endif
-        float denominator = (locationValidator.currentLatitude >= 0 || !absoluteProjection) ? 
-                                1f + starC.z : //northern emisphere
-                                1f - starC.z;  //southern emisphere
-        if (denominator < 0.001f) return;
+        {
+            //Applying STEREOGRAPHIC PROJECTION
+            float denominator = (locationValidator.currentLatitude >= 0 || !absoluteProjection) ?
+                        1f + starC.z : //northern emisphere
+                        1f - starC.z;  //southern emisphere
+            if (denominator < 0.0001f) 
+                return;
 
-        // -x adjust the perspective from the main camera
-        float projectedX = -starC.x / denominator;
-        float projectedY = starC.y / denominator;
+            // -x adjust the perspective from the main camera
+            projectedX = -starC.x / denominator;
+            projectedY = starC.y / denominator;
+        }
 
         Vector3 finalPosition = new Vector3(projectedX * projectionScale, projectedY * projectionScale, -star.mag);
 
@@ -428,27 +475,34 @@ public class StarGenerator : MonoBehaviour
 
         newStar.name = $"Star_{star.id}";
 
-        //Renderer and collider properties
-        SpriteRenderer starRenderer = newStar.GetComponent<SpriteRenderer>();
-        //update shader for outiline
-        if (starMatReference != null)
-        starRenderer.sharedMaterial = starMatReference;
-        //--end shader
-        CircleCollider2D collider = newStar.AddComponent<CircleCollider2D>();
-        if (starRenderer != null)
+        if (type == GridGenerator.ProjectionType.STHEREOGRAPHIC || starC.z >= 0f)  //exclude from render stars below horizon, but maintain to complete constellations
         {
-            starRenderer.sortingOrder = 1; //the greater the nearer
-            starRenderer.color = CalculateStarColor(star.colorIndex);
-#if DEBUG
-            if (star.binCount > 0) //track binary sistem visually
+            //Renderer and collider properties
+            SpriteRenderer starRenderer = newStar.GetComponent<SpriteRenderer>();
+            //update shader for outiline
+            if (starMatReference != null)
+                starRenderer.sharedMaterial = starMatReference;
+            //--end shader
+            CircleCollider2D collider = newStar.AddComponent<CircleCollider2D>();
+            if (starRenderer != null)
             {
-                //newStar.transform.localScale *= 5f;
-                starRenderer.color = Color.green;
-            }
+                starRenderer.sortingOrder = 1; //the greater the nearer
+                starRenderer.color = CalculateStarColor(star.colorIndex);
+#if DEBUG
+                if (star.binCount > 0) //track binary sistem visually
+                {
+                    //newStar.transform.localScale *= 5f;
+                    starRenderer.color = Color.green;
+                }
 #endif
-            collider.radius = 2 * starRenderer.bounds.extents.x;  //CalculateStarRadius(magnitude, starRenderer);
+                collider.radius = 2 * starRenderer.bounds.extents.x;  //CalculateStarRadius(magnitude, starRenderer);
+            }
         }
-       
+        else if (type == GridGenerator.ProjectionType.EQ_AZIMUTHAL && starC.z < 0f)
+        {
+            newStar.SetActive(false);
+        }
+
         instantiatedStars.Add(star.id, newStar);
     }
 
@@ -471,6 +525,13 @@ public class StarGenerator : MonoBehaviour
                     type = database.constellationDict[link.identifier].type;
                 }
 
+                if (!instantiatedStars[link.startId].activeInHierarchy &&
+                    !instantiatedStars[link.endId].activeInHierarchy &&
+                    type != LinkType.GEOMETRY)
+                {
+                    continue; //do not draw a constellation line with both loose ends
+                }
+                    
                 CreateConstellationLine(startLocalPos, endLocalPos,
                                         startRadius, endRadius, 
                                         link, type);
@@ -718,4 +779,38 @@ public class StarGenerator : MonoBehaviour
         
         return finalScale;
     }
+
+    //Vector2 CalcolaIntersection2D(Vector2 visiblePoint, Vector2 notVisibilePoint, Vector2 center, float radius)
+    //{
+    //    // Vettore direzione del segmento
+    //    Vector2 d = notVisibilePoint - visiblePoint;
+
+    //    // Vettore dal centro del cerchio al punto di partenza
+    //    Vector2 f = visiblePoint - center;
+
+    //    // Componenti dell'equazione quadratica (a*t^2 + b*t + c = 0)
+    //    float a = Vector2.Dot(d, d);
+    //    float b = 2f * Vector2.Dot(f, d);
+    //    float c = Vector2.Dot(f, f) - (radius * radius);
+
+    //    float discriminante = (b * b) - (4f * a * c);
+
+    //    if (discriminante < 0)
+    //    {
+    //        // Fallback di sicurezza: la linea non tocca il cerchio
+    //        return visiblePoint;
+    //    }
+
+    //    discriminante = Mathf.Sqrt(discriminante);
+
+    //    // Le due soluzioni dell'equazione
+    //    float t1 = (-b - discriminante) / (2f * a);
+    //    float t2 = (-b + discriminante) / (2f * a);
+
+    //    // Poiché un punto è dentro e uno è fuori, solo un 't' sarà compreso tra 0 e 1 (cioè lungo il nostro segmento)
+    //    float t = (t1 >= 0f && t1 <= 1f) ? t1 : t2;
+
+    //    // Calcoliamo il punto esatto di intersezione
+    //    return visiblePoint + (d * t);
+    //}
 }

@@ -2,7 +2,7 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.EventSystems; // mouse input
-using UnityEngine.UI; //Image
+using UnityEngine.UI; //Image / Button
 using UnityEngine.UIElements;
 
 //
@@ -34,11 +34,21 @@ public class BtnManager : MonoBehaviour, IPointerEnterHandler, IPointerExitHandl
     public string itaTextStateB;
     [TextArea]
     public string engTextStateB;
+    [TextArea]
+    public string itaTextFwdA;
+    [TextArea]
+    public string engTextFwdA;
+    [TextArea]
+    public string itaTextFwdB;
+    [TextArea]
+    public string engTextFwdB;
 
     private bool altState = false;
     private bool altSet = false;
 
     public UnityEvent<bool> onChangeState;
+    public UnityEvent<bool> onChangeStateRev;
+    public UnityEvent<string> onChangeStateStr;
 
     //active icons
     private Sprite iconA;
@@ -48,10 +58,19 @@ public class BtnManager : MonoBehaviour, IPointerEnterHandler, IPointerExitHandl
     private string itaText;
     private string engText;
 
+    private UnityEngine.UI.Button btnComponent;
+
     void Start()
     {
         altSet = hasAlternativeSet;  //will be changed to false at start
         ChangeSet();
+        updateFwdText(UIManager.Instance.CurrentLanguage == AppLanguage.Italian);
+    }
+
+    void Awake()
+    {
+        // Recuperiamo il vero e proprio componente Button attaccato a questo oggetto
+        btnComponent = GetComponent<UnityEngine.UI.Button>();
     }
 
     public void ChangeSet()
@@ -77,6 +96,14 @@ public class BtnManager : MonoBehaviour, IPointerEnterHandler, IPointerExitHandl
         UpdatePanel();
     }
 
+    public void SetState(bool firstState)
+    {
+        if (altState != firstState)
+            ChangeState();
+        //else
+        //    return;
+    }
+
     public void ChangeState()
     {
         if (imgItem == null || iconA == null || iconB == null)
@@ -88,9 +115,27 @@ public class BtnManager : MonoBehaviour, IPointerEnterHandler, IPointerExitHandl
         altState = !altState;
         UpdateIcon();
         onChangeState.Invoke(altState);
+        onChangeStateRev.Invoke(!altState);
+        updateFwdText(UIManager.Instance.CurrentLanguage == AppLanguage.Italian);
     }
 
-    void UpdatePanel()
+    public void updateFwdText(bool isIta)
+    {
+        
+        string fwdText;
+        if (isIta)
+        {
+            fwdText = altState ? itaTextFwdB : itaTextFwdA;
+        }
+        else
+        {
+            fwdText = altState ? engTextFwdB : engTextFwdA;
+        }
+
+        onChangeStateStr.Invoke(fwdText);
+    }
+
+    private void UpdatePanel()
     {
         bool ita = UIManager.Instance.CurrentLanguage == AppLanguage.Italian;
         tootltipText.text = ita ? itaText : engText;
@@ -98,8 +143,11 @@ public class BtnManager : MonoBehaviour, IPointerEnterHandler, IPointerExitHandl
 
     public void OnPointerEnter(PointerEventData eventData) //automatic callback when mouse move INSIDE the area
     {
-        UpdatePanel();
-        panel.SetActive(true);
+        if (btnComponent != null && btnComponent.interactable)
+        {
+            UpdatePanel();
+            panel.SetActive(true);
+        }
     }
 
     public void OnPointerExit(PointerEventData eventData) //automatic callback when mouse move OUTSIDE the area

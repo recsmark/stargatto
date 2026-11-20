@@ -3,6 +3,7 @@ using System.Globalization;
 using System.Security.Cryptography.X509Certificates;
 using TMPro; // TextMeshPro
 using UnityEngine;
+using UnityEngine.Events;
 using UnityEngine.EventSystems;
 
 public class SkyInteractionManager : MonoBehaviour
@@ -13,17 +14,21 @@ public class SkyInteractionManager : MonoBehaviour
     public Camera mainCamera;
 
     [Header("GameUI")]
-    public TextMeshProUGUI upperText;
+    public TextMeshProUGUI UTC_Text;
+    public TextMeshProUGUI LST_Text;
     public TextMeshProUGUI bottomText;
 
     [Header("Tooltip UI")] // tooltip (Star/Constellation name)
     public TooltipManager tooltip;
+    public DateValidator validator;
     //public TextMeshProUGUI tooltipText;
     //public Vector2 tooltipOffset = new Vector2(15f, -15f); // Cursor offset
-    
-    private const float PC_TO_LYEAR = 3.26156f; //convert parsec to light years
 
-    public DateValidator validator;
+    [Header("Actions")]
+    public UnityEvent<string> onChangeLang;
+    public UnityEvent<bool> onChangeLangIsIta;
+
+    private const float PC_TO_LYEAR = 3.26156f; //convert parsec to light years
 
     private string currentHoveredConstellation = "";
     private AppLanguage currentLanguage = AppLanguage.Italian; //see UIManager
@@ -229,9 +234,19 @@ public class SkyInteractionManager : MonoBehaviour
     public void UpdateGameUI()
     {
         float rotationH = skyContainer.SkyRotationUTC; //gives delta between current and UTC (+ sky rotation)
+
         DateTime currentDate = validator?.GetDate() ?? DateTime.UtcNow;
         //using AddHours make the object a TimeSpan, so the new format is needed
-        upperText.text = currentDate.AddHours(rotationH).TimeOfDay.ToString(@"hh\:mm\:ss") + " UTC"; //current SIDEREAL time = UTC + rotation
+        UTC_Text.text = currentDate.AddHours(rotationH).TimeOfDay.ToString(@"hh\:mm\:ss") + " UTC"; //current SIDEREAL time = UTC + rotation
+
+#if UNITY_EDITOR
+        LST_Text.text = "LST: " + TimeSpan.FromHours(skyContainer.SkyRotationLST).ToString(@"hh\:mm\:ss");
+        float degRotation = skyContainer.SkyRotationUTC * 15f;
+        //LST_Text.text = "ROT " + degRotation.ToString("F2") + "°";
+#else
+        LST_Text.SetActive(false);
+#endif
+
         //if (currentLanguage == AppLanguage.Italian)
         //    upperText.text += " UTC";
         //else
@@ -241,25 +256,32 @@ public class SkyInteractionManager : MonoBehaviour
                                "ddd, dd MMM yyyy HH:mm:ss 'GMT'",
                                CultureInfo.InvariantCulture.DateTimeFormat,
                                DateTimeStyles.AssumeUniversal);*/
+        string bottomText;
+        bool ita = currentLanguage == AppLanguage.Italian;
 
-        if (currentLanguage == AppLanguage.Italian)
-            bottomText.text = "Costellazioni trovate ";
+        if (ita)
+            bottomText = "Costellazioni trovate ";
         else
-            bottomText.text = "Found constellations ";
+            bottomText = "Found constellations ";
 
-        bottomText.text += starGenerator.visibleConstellations.Count.ToString() + "/" + starGenerator.totalConstellations.ToString();
+        bottomText += starGenerator.visibleConstellations.Count.ToString() + "/" + starGenerator.totalConstellations.ToString();
 
-        if (currentLanguage == AppLanguage.Italian)
-            bottomText.text += " - Stelle: ";
+        if (ita)
+            bottomText += " - Stelle: ";
         else
-            bottomText.text += " - Stars :";
+            bottomText += " - Stars :";
 
-        bottomText.text += starGenerator.totalStars.ToString();
+        //bottomText += starGenerator.totalStars.ToString();
+        bottomText += starGenerator.totalVisiblelStars.ToString();
 
-        if (currentLanguage == AppLanguage.Italian)
-            bottomText.text += " - ISTRUZIONI: ";
+        if (ita)
+            bottomText += "\nISTRUZIONI: ";
         else
-            bottomText.text += " - INSTRUCTIONS: ";
-        bottomText.text += " TAB";
+            bottomText += "\nINSTRUCTIONS: ";
+        bottomText += " TAB";
+
+
+        onChangeLang.Invoke(bottomText);
+        onChangeLangIsIta.Invoke(ita);
     }
 }

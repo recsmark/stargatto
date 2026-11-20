@@ -1,5 +1,6 @@
-using UnityEngine;
+using System;
 using TMPro;
+using UnityEngine;
 
 public class HorizonController : MonoBehaviour
 {
@@ -30,15 +31,20 @@ public class HorizonController : MonoBehaviour
 
     public void UpdateHorizonMask(float latitude, bool relativeProj)
     {
-        float safeLat = Mathf.Max(Mathf.Abs(latitude), 0.1f);
-        float latRad = safeLat * Mathf.Deg2Rad;
+        float centerY = 0f;
+        float radius = equatorRadius;
+        if (!relativeProj)
+        {
+            float safeLat = Math.Sign(latitude) * Mathf.Max(Mathf.Abs(latitude), 0.1f);
+            float latRad = safeLat * Mathf.Deg2Rad;
 
-        float radius = equatorRadius / Mathf.Sin(latRad);
-        float yOffset = equatorRadius / Mathf.Tan(latRad);
-        if (latitude < 0) 
-            yOffset = -yOffset;
+            radius = equatorRadius / Mathf.Sin(latRad);
+            float yOffset = equatorRadius / Mathf.Tan(latRad);
+            if (latitude < 0)
+                yOffset = -yOffset;
 
-        float centerY = relativeProj ? 0 : -yOffset;
+            centerY = -yOffset;
+        }
 
         // Move visible part
         transform.localPosition = new Vector3(0, centerY, 0);
