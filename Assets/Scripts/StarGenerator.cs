@@ -715,6 +715,11 @@ public class StarGenerator : MonoBehaviour
         }
     }
 
+    public void GridReveal()
+    {
+        grid.ToggleGrid();
+    }
+
     public void SetConstellationGlow(string constId, bool isGlowing)
     {
         if (!skyGenerated) return;

@@ -17,17 +17,36 @@ public class GridGenerator : MonoBehaviour
     public float textPadding = 0.5f;
 
     const int baseOrder = 50;
+    private bool initialstatus = false;
 
     void Start()
     {
-
+#if UNITY_EDITOR
+        initialstatus = false;
+#endif
     }
+
 
     public void DrawGrid(float scale, float latitude, ProjectionType type)
     {
         for (int angle = 10; angle <= 90; angle += 10)
         {
             DrawCircles(angle, scale, latitude, type);
+        }
+        SetVisibility();
+    }
+
+    public void ToggleGrid()
+    {
+        initialstatus = !initialstatus;
+        SetVisibility();
+    }
+
+    private void SetVisibility()
+    {
+        foreach (Transform child in transform)
+        {
+            child.gameObject.SetActive(initialstatus);
         }
     }
 

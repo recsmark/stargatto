@@ -211,6 +211,16 @@ public class UIManager : MonoBehaviour
                 }
             }
         }
+        else if (Input.GetKeyDown(KeyCode.G))
+        {
+            if (!isHelpOpen && !isInMenu)
+            {
+                if (starGenerator != null)
+                {
+                    starGenerator.GridReveal();
+                }
+            }
+        }
     }
 
     public void StartSimulation()
@@ -398,7 +408,8 @@ public class UIManager : MonoBehaviour
             "Rotella del mouse: Zoom Avanti e Indietro\n" +
             "Q, E: Fai scorrere il tempo (Ruota il cielo)\n" +
             "I: Inquinamento luminoso ON/OFF\n" +
-            "R: Resetta la vista\n";
+            "R: Resetta la vista\n" +
+            "G: Griglia Azimutale\n";
 
         if (skyIteractionManager != null)
             skyIteractionManager.SetCurrentLanguage(currentLanguage);
@@ -422,7 +433,8 @@ public class UIManager : MonoBehaviour
             "C, X, Mouse Wheel: Zoom In and Out\n" +
             "Q, E: Advance/Rewind time (Rotate sky)\n" +
             "I: Toggle light pollution\n" +
-            "R: Reset view\n";
+            "R: Reset view\n" +
+            "G: Azimuthal grid\n";
 
         if (skyIteractionManager != null)
             skyIteractionManager.SetCurrentLanguage(currentLanguage);
