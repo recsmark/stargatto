@@ -88,7 +88,7 @@ public class StarContainer : MonoBehaviour
     private const float initLatitude = 45.6f;  //[deg]
     private const float initLongitude = 14.6f; //[deg]
 
-    //private float currLatitude = initLatitude;
+    private float currLatitude = initLatitude;
     private float currLongitude = initLongitude;
 
     public DateValidator dateValidator;
@@ -133,7 +133,7 @@ public class StarContainer : MonoBehaviour
 
     public void SetNewDate()
     {
-        //currLatitude = locationValidator.currentLatitude; //not needed here?
+        currLatitude = locationValidator.currentLatitude; 
         currLongitude = locationValidator.currentLongitude;
 
         DateTime dateRef = dateValidator?.GetDate() ?? DateTime.UtcNow;
@@ -150,9 +150,18 @@ public class StarContainer : MonoBehaviour
 
     private void Apply(DateTime dateRef, bool absolute)
     {
-        _initialRotationHour = SiderealMath.CalculateLocalSiderealAngle(currLongitude, dateRef);
+        // The sign of LST is inverted for the Southern Hemisphere to account for the mirrored stereographic projection.
+        _initialRotationHour = Mathf.Sign(currLatitude) * SiderealMath.CalculateLocalSiderealAngle(currLongitude, dateRef);
         _UTC_rotated -= _initialRotationHour; //instantiate difference, assuming the same speed
-        ApplyRotation(_initialRotationHour, absolute);
+
+        //modifier correction
+        // Adds a 90 deg offset
+        // This aligns the Cartesian mathematical zero (X-axis) with the astrolabe's visual local meridian (Y-axis).
+        // e.g. 0 deg is on the right side on the Cartesian plane, but astronomical zero is Noon (upper side)!
+        // The sign is inverted for the Southern Hemisphere to account for the mirrored stereographic projection.
+        float modifier = (Mathf.Sign(currLatitude) * 90f) / skyRotationSpeed;
+
+        ApplyRotation(_initialRotationHour + modifier, absolute);
 
         initialSkyRotation = transform.rotation;
     }
@@ -162,19 +171,20 @@ public class StarContainer : MonoBehaviour
         if (!rotationEnabled)
         {
             transform.localRotation = Quaternion.identity;
-            return;
+            return; //azimuthal projection can't rotate around polaris
         }
 
         //float deltaAngle = deltaTime * speed;
-        if (absolute)
+        if (absolute) //reset scene user input
         {
-            transform.rotation = Quaternion.Euler(0f, 0f, -speed * deltaTime);
+            //here speed must be the constant of conversion 15 [deg/h]
+            transform.rotation = Quaternion.Euler(0f, 0f, (skyRotationSpeed * deltaTime));
             _LST_hour = deltaTime;
             _LST_hour %= 24f;
             _UTC_rotated = deltaTime;
             _UTC_rotated %= 24f;
         }
-        else
+        else //with user input
         {
             transform.Rotate(Vector3.forward, speed * deltaTime);
             _LST_hour += deltaTime;

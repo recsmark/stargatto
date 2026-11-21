@@ -289,11 +289,12 @@ public class StarGenerator : MonoBehaviour
 
         if (!absoluteProjection)
         {
-            // in case of oblique stereographical projection or azimuthal equidistnt
+            // in case of oblique stereographical projection or azimuthal equidistant
             // depending on observer on Earth
             float lst = 0f;
             if (skyContainer != null)
-                lst = skyContainer.SkyRotationLST*15f; //dependant on longitude, change hour in deg!
+                lst = Mathf.Abs(skyContainer.SkyRotationLST*15f); //dependant on longitude, change hour in deg!
+            //abs value here since unified SkyRotationLST chagne sign when latitude < 0
 
             float dec0Rad = lat * Mathf.Deg2Rad;
             float ra0Rad = lst * Mathf.Deg2Rad;
@@ -342,7 +343,7 @@ public class StarGenerator : MonoBehaviour
 
         if (skyGenerated) return; // generate once
 
-        LoadStars(type);
+        DrawStars(type, latitude);
         DrawConstellations();
 
 #if UNITY_EDITOR
@@ -392,12 +393,12 @@ public class StarGenerator : MonoBehaviour
         skyGenerated = false;
     }
 
-    void LoadStars(GridGenerator.ProjectionType type)
+    void DrawStars(GridGenerator.ProjectionType type, float currLat)
     {
         foreach (var kvp in database.starDict)
         {
             StarData star = kvp.Value;
-            GenerateProjectedStar(ref star, type);
+            GenerateProjectedStar(ref star, currLat, type);
         }
 
         totalConstellations = database.constellationDict.Count;
@@ -408,7 +409,7 @@ public class StarGenerator : MonoBehaviour
         CustomLogger.Log($"Generazione completata: {totalVisiblelStars} stelle create a schermo.");
     }
 
-    void GenerateProjectedStar(ref StarData star, GridGenerator.ProjectionType type)
+    void GenerateProjectedStar(ref StarData star, float currLat, GridGenerator.ProjectionType type)
     {
         //APPLY STEREOGRAPHIC PROJECTION
 
@@ -440,9 +441,9 @@ public class StarGenerator : MonoBehaviour
             float zenithDistanceNormalized = Mathf.Acos(starC.z) * 2f / Mathf.PI;
 
             float angleOnPlane = Mathf.Atan2(starC.y, starC.x);
-            // -x adjust the perspective from the main camera
-            projectedX = -zenithDistanceNormalized * Mathf.Cos(angleOnPlane);
-            projectedY = zenithDistanceNormalized * Mathf.Sin(angleOnPlane);
+            // -x adjust the perspective from the main camera, based also on latitude sign
+            projectedX = -Mathf.Sign(currLat) * zenithDistanceNormalized * Mathf.Cos(angleOnPlane);
+            projectedY = Mathf.Sign(currLat) * zenithDistanceNormalized * Mathf.Sin(angleOnPlane);
         }
         else
 #else
@@ -459,8 +460,8 @@ public class StarGenerator : MonoBehaviour
             if (denominator < 0.0001f) 
                 return;
 
-            // -x adjust the perspective from the main camera
-            projectedX = -starC.x / denominator;
+            // -x adjust the perspective from the main camera, based also on latitude sign
+            projectedX = -Mathf.Sign(currLat) * starC.x / denominator;
             projectedY = starC.y / denominator;
         }
 

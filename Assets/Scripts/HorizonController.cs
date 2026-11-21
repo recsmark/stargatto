@@ -57,7 +57,7 @@ public class HorizonController : MonoBehaviour
         }
 
         // Set labels
-        PositionCardinalPoints(radius, centerY);
+        PositionCardinalPoints(Mathf.Sign(latitude) * radius, centerY);
     }
 
     private void DrawHorizonLine(float radius, float centerY)
