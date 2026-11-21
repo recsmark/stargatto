@@ -243,7 +243,7 @@ public class SkyInteractionManager : MonoBehaviour
         float degRotation = skyContainer.SkyRotationUTC * 15f;
         //LST_Text.text = "ROT " + degRotation.ToString("F2") + "°";
 #else
-        LST_Text.SetActive(false);
+        LST_Text.gameObject.SetActive(false);
 #endif
 
         //if (currentLanguage == AppLanguage.Italian)

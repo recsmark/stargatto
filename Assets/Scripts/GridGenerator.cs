@@ -36,6 +36,7 @@ public class GridGenerator : MonoBehaviour
         SetVisibility();
     }
 
+    [UnityEngine.Scripting.Preserve] //prevents compilation fail of this function
     public void ToggleGrid()
     {
         initialstatus = !initialstatus;

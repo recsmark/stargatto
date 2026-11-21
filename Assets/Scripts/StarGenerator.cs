@@ -346,9 +346,8 @@ public class StarGenerator : MonoBehaviour
         DrawStars(type, latitude);
         DrawConstellations();
 
-#if UNITY_EDITOR
         grid.DrawGrid(projectionScale, latitude, type);
-#endif
+
         skyGenerated = true;
 
         //when sky generated, maintain revealed lines when re-generating sky (e.g changing projection)
