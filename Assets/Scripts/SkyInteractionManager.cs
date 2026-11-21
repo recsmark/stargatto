@@ -119,10 +119,7 @@ public class SkyInteractionManager : MonoBehaviour
                     {
                         string fullName = currentLanguage == AppLanguage.Italian ? starGenerator.database.constellationDict[constId].itaName
                              : starGenerator.database.constellationDict[constId].itaName;
-#if UNITY_EDITOR || DEVELOPMENT_BUILD //development build only when builds
-                        //add line name
-                        fullName = objName;
-#endif
+
                         ShowTooltip(fullName, true);
                     }
                     else
@@ -233,11 +230,13 @@ public class SkyInteractionManager : MonoBehaviour
 
     public void UpdateGameUI()
     {
-        float rotationH = skyContainer.SkyRotationUTC; //gives delta between current and UTC (+ sky rotation)
+        //beomed useless here
+        //float rotationH = skyContainer.SkyRotationUTC; //gives delta between current and UTC (+ sky rotation)
 
         DateTime currentDate = validator?.GetDate() ?? DateTime.UtcNow;
         //using AddHours make the object a TimeSpan, so the new format is needed
-        UTC_Text.text = currentDate.AddHours(rotationH).TimeOfDay.ToString(@"hh\:mm\:ss") + " UTC"; //current SIDEREAL time = UTC + rotation
+        //UTC_Text.text = currentDate.AddHours(rotationH).TimeOfDay.ToString(@"hh\:mm\:ss") + " UTC";
+        UTC_Text.text = currentDate.TimeOfDay.ToString(@"hh\:mm\:ss") + " UTC";
 
 #if UNITY_EDITOR
         LST_Text.text = "LST: " + TimeSpan.FromHours(skyContainer.SkyRotationLST).ToString(@"hh\:mm\:ss");

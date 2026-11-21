@@ -92,9 +92,9 @@ public class CameraController : MonoBehaviour
             if (skyContainer != null)
             {
                 if (Input.GetKey(KeyCode.Q)) // ACW
-                    skyContainer.ApplyRotation(Time.deltaTime, false);
+                    skyContainer.ApplyRotation(Time.deltaTime, false); //could be applied any speed as third argument
                 if (Input.GetKey(KeyCode.E)) // ACW
-                    skyContainer.ApplyRotation(-Time.deltaTime, false);
+                    skyContainer.ApplyRotation(-Time.deltaTime, false); //could be applied any speed as third argument
             }
         }
         else if (scrollInput != 0f || // ---3.ZOOM(Mouse Wheel or keyboard)-- -
