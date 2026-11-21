@@ -74,6 +74,7 @@ mono_crash.*
 /WebGLBuild/index.html
 /Assets/StreamingAssets/*.dat*
 /Assets/NotVersioned*
+/Assets/WebGLTemplates*
 /DesktopBuilds/*
 
 # Builds
