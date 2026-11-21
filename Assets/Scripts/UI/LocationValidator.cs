@@ -1,6 +1,7 @@
 using System;
 using TMPro;
 using UnityEngine;
+using System.Globalization; // InvariantCulture
 
 public class LocationValidator : MonoBehaviour
 {
@@ -25,8 +26,7 @@ public class LocationValidator : MonoBehaviour
 
     private void ValidateLatitude(string input)
     {
-        // Prova a convertire la stringa in un numero (ignorando le lettere)
-        if (float.TryParse(input, out float result))
+        if (TryParseDecimalInput(input, out float result))
         {
             SetLatitude(result);
         }
@@ -35,11 +35,30 @@ public class LocationValidator : MonoBehaviour
 
     private void ValidateLongitude(string input)
     {
-        if (float.TryParse(input, out float result))
+        if (TryParseDecimalInput(input, out float result))
         {
             SetLongitude(result);
         }
         //else error?
+    }
+
+    private bool TryParseDecimalInput(string input, out float result)
+    {
+        if (string.IsNullOrWhiteSpace(input))
+        {
+            result = 0f;
+            return false;
+        }
+
+        string normalizedInput = input.Replace(',', '.'); //if found
+
+        // Parse with invariant (.) separator
+        return float.TryParse(
+            normalizedInput,
+            NumberStyles.Any,
+            CultureInfo.InvariantCulture,
+            out result
+        );
     }
 
     private void SetLatitude(float lat)
