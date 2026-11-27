@@ -1,16 +1,19 @@
-﻿using UnityEngine;
-using System;
-using JetBrains.Annotations;
-using UnityEngine.InputSystem.Controls;
-
+﻿using System;
+using UnityEngine;
 using static UniversalConst;
 
 public static class UniversalConst
 {
     public const double Deg2Rad = Math.PI / 180.0;
     public const double EarthObliq = 23.43928f; // [deg]
+    public const float J2000 = 2451545.0f; // [days]
     public static readonly double cEarthObl = Math.Cos(EarthObliq * Deg2Rad);
     public static readonly double sEarthObl = Math.Sin(EarthObliq * Deg2Rad);
+
+    public static float GetJ2000Cy(float JDate)
+    {
+        return (JDate - J2000) / 36525f; //centuries from J2000
+    }
 }
 
 public enum LinkType
@@ -34,19 +37,21 @@ public class OrbitalParam
         param_dot = pDot;
     }
 
-    public double Get(float yearFromJ2000 = 0)
+    public double Update(float T = 0) //centuries
     {
-        return paramJ2000 + param_dot * yearFromJ2000;
+        return paramJ2000 + param_dot * T;
     }
 }
 
 //[Serializable]
 public abstract class SkyObject
 {
+    public uint id;
     public string name;
     public string engName;
     public float absMag;
     public float mag;
+    public float colorIndex;
     public Vector3 pos = new (0f, 0f, 0f);  //Cartesian position "now" [variable]
     public float ra;  //[h]
     public float dec; //[deg]
@@ -55,7 +60,7 @@ public abstract class SkyObject
     public void updatePos(float x = 0) { } //placeholder
 #else //else, calc angular values from x,y,z: better to take into account speed over time
     public float dist { get => pos.magnitude; } // [variable]
-    public virtual void UpdatePos(float J2000date = 0)  //input argument needed for the overrided methods
+    public virtual void UpdatePos(float JDate = J2000)  //input argument needed for the overrided methods
     {
         //recalc ra, dec and dist from new pos
         ra = Mathf.Atan2(pos.y, pos.x) * Mathf.Rad2Deg / 15f; //[h]
@@ -74,9 +79,7 @@ public abstract class SkyObject
 public class Star : SkyObject
 {
     public uint hr;
-    public uint id;
     public bool mainStar; //main Star in a binary system
-    public float colorIndex;
     public uint binMain;
     public byte binInd;
     public uint[] idsBins = new uint[2] { 0, 0 };
@@ -87,11 +90,11 @@ public class Star : SkyObject
     public Vector3 vel = new(0f, 0f, 0f); //Cartesian velocity [pc / cy]
 
 #if !USE_DB_ANGULAR_VALUES
-    public override void UpdatePos(float J2000date = 2451545.0f)
+    public override void UpdatePos(float JDate = J2000)
     {
-        float T = (J2000date - 2451545.0f) / 36525f; //centuries
+        float T = GetJ2000Cy(JDate);
         pos = posJ2000 + vel * T; //[pc]
-        base.UpdatePos(J2000date);
+        base.UpdatePos();
     }
 #endif
 }
@@ -99,50 +102,53 @@ public class Star : SkyObject
 //[Serializable]
 public class Planet : SkyObject
 {
+    // DATA from JPL
     //https://ssd.jpl.nasa.gov/planets/approx_pos.html
-    private readonly OrbitalParam a0; //major semiaxis
-    private readonly OrbitalParam e0; //eccentricity
-    private readonly OrbitalParam i0; //orbit inclination
-    private readonly OrbitalParam L0; //mean longitude (-> mean anomaly)
-    private readonly OrbitalParam w0; //perihelion longitude (-> Argument of periapsis)
-    private readonly OrbitalParam Ω0; //longitude of ascending node (RAAN)
+    public OrbitalParam aJ2000 { get; } //major semiaxis [UA] // no need to convert in [pc], RA and DEC will be obtained
+    public OrbitalParam eJ2000 { get; } //eccentricity [rad]
+    public OrbitalParam iJ2000 { get; } //orbit inclination [deg]
+    public OrbitalParam LJ2000 { get; } //mean longitude (-> mean anomaly) [deg]
+    public OrbitalParam wJ2000 { get; } //perihelion longitude (-> Argument of periapsis) [deg]
+    public OrbitalParam ΩJ2000 { get; } //longitude of ascending node (RAAN) [deg]
 
     //additional orbital terms (Jupiter to Neptune) based on centuries from J2000
-    private float addB { get; set; } = 0; //base T^2 
-    private float addC { get; set; } = 0; //cosine term
-    private float addS { get; set; } = 0; //sine term
-    private float addF { get; set; } = 0; //freq term
+    public float addB { get; set; } = 0; //base T^2 
+    public float addC { get; set; } = 0; //cosine term
+    public float addS { get; set; } = 0; //sine term
+    public float addF { get; set; } = 0; //freq term
 
-    protected Planet(double a, double e, double i, double L, double w, double Ω)
+    public string descr;
+
+    public Planet(double a, double e, double i, double L, double Ω, double w)
     {
-        a0 = new OrbitalParam(a, 0f);
-        e0 = new OrbitalParam(e, 0f); 
-        i0 = new OrbitalParam(i, 0f); 
-        L0 = new OrbitalParam(L, 0f); 
-        w0 = new OrbitalParam(w, 0f); 
-        Ω0 = new OrbitalParam(Ω, 0f);
+        aJ2000 = new OrbitalParam(a, 0f);
+        eJ2000 = new OrbitalParam(e, 0f); 
+        iJ2000 = new OrbitalParam(i, 0f); 
+        LJ2000 = new OrbitalParam(L, 0f); 
+        wJ2000 = new OrbitalParam(w, 0f); 
+        ΩJ2000 = new OrbitalParam(Ω, 0f);
     }
 
-    public void setOrbitalParamDot(double aV, double eV, double iV, double LV, double wV, double ΩV)
+    public void SetOrbitalParamDot(double aV, double eV, double iV, double LV, double ΩV, double wV)
     {
-        a0.param_dot = aV;
-        e0.param_dot = eV;
-        i0.param_dot = iV;
-        L0.param_dot = LV;
-        w0.param_dot = wV;
-        Ω0.param_dot = ΩV;
+        aJ2000.param_dot = aV;
+        eJ2000.param_dot = eV;
+        iJ2000.param_dot = iV;
+        LJ2000.param_dot = LV;
+        wJ2000.param_dot = wV;
+        ΩJ2000.param_dot = ΩV;
     }
 
-    public void setAdditionalTerms(float b, float c, float s, float f)
+    public void SetAdditionalTerms(float b, float c, float s, float f)
     {
-        this.addB = b;
-        this.addC = c;
-        this.addS = s;
-        this.addF = f;
+        addB = b;
+        addC = c;
+        addS = s;
+        addF = f;
     }
 
 #if !USE_DB_ANGULAR_VALUES
-    public void UpdatePos(Vector3 eathPos, float J2000date = 0)
+    public void UpdatePos(Vector3 eathPos, float JDate = 0)
     {
         double CalcEccAnomaly (double M, double e) //Eccentric (real) anomaly 
         {
@@ -162,14 +168,14 @@ public class Planet : SkyObject
             return E;
         }
 
-        float T = (J2000date - 2451545.0f) / 36525; //centuries, TBD
+        float T = GetJ2000Cy(JDate);
 
-        double a = a0.Get(T);
-        double e = e0.Get(T);
-        double i = e0.Get(T);
-        double L = e0.Get(T);
-        double w = e0.Get(T);
-        double Ω = e0.Get(T);
+        double a = aJ2000.Update(T);
+        double e = eJ2000.Update(T);
+        double i = eJ2000.Update(T);
+        double L = eJ2000.Update(T);
+        double w = eJ2000.Update(T);
+        double Ω = eJ2000.Update(T);
 
         double ω = w - Ω; //argument of perihelium
         double M = L - w + addB * T * T + (addC * Mathf.Cos(addF * T)) + (addS * Mathf.Sin(addF * T)); //mean anomaly
@@ -195,7 +201,7 @@ public class Planet : SkyObject
         pos.y = -eathPos.y + (float) (cEarthObl * yE - sEarthObl * zE);
         pos.z = -eathPos.z + (float) (sEarthObl * yE - cEarthObl * zE);
 
-        base.UpdatePos(J2000date);
+        base.UpdatePos();
     }
 #endif
 }

@@ -82,27 +82,38 @@ public class SkyInteractionManager : MonoBehaviour
             string objName = priorityHit.gameObject.name;
             //CustomLogger.Log($"[RAYCAST] Ho toccato: {objName}");
 
-            if (objName.StartsWith("Star_"))
+            if (objName.StartsWith("Star_") || objName.StartsWith("Planet_"))
             {
                 // Get star ID from name (es: from "Star_123" to "123") ...
                 uint starId = uint.Parse(objName.Split('_')[1]);
 
                 // ... and use in dictionary to retrieve name
-                if (starGenerator.database.starDict.ContainsKey(starId))
+                if (starGenerator.database.pointDict.ContainsKey(starId))
                 {
-                    Star star = starGenerator.database.starDict[starId];
-                    if (star.mainStar)
+                    SkyObject point = starGenerator.database.pointDict[starId];
+                    switch (point)
                     {
-                        ShowStarTooltip(ref star);
-                    }
+                        case Star star:
+                            if (star.mainStar)
+                            {
+                                ShowStarTooltip(ref star, star.binCount);
+                            }
 
-                    if (star.binCount == 1)
-                    {
-                        //2nd star
-                        Star second = starGenerator.database.starDict[star.idsBins[0]];
-                        if (second != null)
-                            Show2ndStarTooltip(ref second, star.name);
-                    }
+                            if (star.binCount == 1)
+                            {
+                                //2nd star
+                                Star star2 = starGenerator.database.pointDict[star.idsBins[0]] as Star;
+                                if (star2 != null)
+                                    Show2ndStarTooltip(ref star2, star2.binCount, star.name);
+                            }
+                            break;
+                        case Planet planet:
+                            ShowPlanetTooltip(ref planet);
+                            break;
+                        default:
+                            break;
+                }
+
                 }
             }
             else if (objName.StartsWith("Line_"))
@@ -171,26 +182,30 @@ public class SkyInteractionManager : MonoBehaviour
     }
 
     // --- UTILITY METHODS ---
-    private void ShowStarTooltip(ref Star star, bool isMain = true, bool sameName = false)
+    private void ShowStarTooltip(ref Star obj, byte count, bool isMain = true, bool sameName = false)
     {
         static string AssignLetter(bool isMain, byte binCount)
         {
             return isMain ? (binCount > 0 ? "A" : "") : "B";
         }
 
-        string starName = star.name;
-        if (string.IsNullOrEmpty(star.name))
-            starName = AssignLetter(isMain, star.binCount); //overwrite null string
+        string pointName = obj.name;
+        if (string.IsNullOrEmpty(obj.name))
+            pointName = AssignLetter(isMain, count); //overwrite null string
         else
         {
             if (sameName) //tag each star
-                starName += " " + AssignLetter(isMain, star.binCount);
+                pointName += " " + AssignLetter(isMain, count);
         }
 #if UNITY_EDITOR || DEVELOPMENT_BUILD //development build only when builds
         //add id to catch quick an draw missing lines in development
-        starName += "_" + star.hr.ToString(); //use hr to faster check lines 
+        Star ss = obj as Star;
+        if (ss != null)
+        {
+            pointName += "_" + ss.hr.ToString(); //use hr to faster check lines 
+        }
 #endif
-        string textToShow = starName + "\nm " + star.mag.ToString("0.00") + "\n" + (star.dist * PC_TO_LYEAR).ToString("0.00");
+        string textToShow = pointName + "\nm " + obj.mag.ToString("0.00") + "\n" + (obj.dist * PC_TO_LYEAR).ToString("0.00");
 
         if (currentLanguage == AppLanguage.Italian)
             textToShow += " a.l.";
@@ -200,9 +215,22 @@ public class SkyInteractionManager : MonoBehaviour
         ShowTooltip(textToShow, false, !isMain);
     }
 
-    private void Show2ndStarTooltip(ref Star star, string mainName)
+    private void ShowPlanetTooltip(ref Planet obj)
     {
-        ShowStarTooltip(ref star, false, mainName == star.name);
+        string pointName = obj.name;
+        string textToShow = pointName + "\nm " + obj.mag.ToString("0.00") + "\n" + (obj.dist).ToString("0.00");
+
+        if (currentLanguage == AppLanguage.Italian)
+            textToShow += " U.A.";
+        else
+            textToShow += " AU";
+
+        ShowTooltip(textToShow, false, false);
+    }
+
+    private void Show2ndStarTooltip(ref Star star, byte count, string mainName)
+    {
+        ShowStarTooltip(ref star, count, false, mainName == star.name);
     }
 
     private void ShowTooltip(string textToShow, bool isConstellation = false, bool isBinary = false)

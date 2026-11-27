@@ -399,32 +399,73 @@ public class StarGenerator : MonoBehaviour
 
     void DrawStars(GridGenerator.ProjectionType type, float currLat, float JDate = 0f)
     {
-        foreach (var kvp in database.starDict)
+        foreach (SkyObject star in database.pointDict.Values.OfType<Star>())
         {
-            Star star = kvp.Value;
-            GenerateProjectedStar(ref star, currLat, JDate, type);
+            GenerateProjectedPoint(star, currLat, JDate, type);
+        }
+
+        Vector3 zero = new Vector3(0, 0, 0);
+        Planet Earth = database.pointDict.Values.OfType<Planet>().FirstOrDefault(p => p.engName == "Earth");
+        Earth.UpdatePos(zero, JDate);
+        //uint EarthId = database.starDict.FirstOrDefault(kvp => kvp.Value is Planet p && p.engName == "Earth").Key;
+
+        foreach (Planet planet in database.pointDict.Values.OfType<Planet>().Where(p => p.engName != "Earth"))
+        {
+            if (Earth != null)
+            {
+                planet.UpdatePos(Earth.pos, JDate);
+                GenerateProjectedPoint(planet, currLat, JDate, type);
+            }
         }
 
         totalConstellations = database.constellationDict.Count;
-        totalStars = database.starDict.Count;
+        totalStars = database.pointDict.Values.OfType<Star>().Count();
         //totalVisiblelStars = database.starDict.Values.Count(star => star.mainStar);
         totalVisiblelStars = instantiatedStars.Count;
 
         CustomLogger.Log($"Generazione completata: {totalVisiblelStars} stelle create a schermo.");
     }
 
-    void GenerateProjectedStar(ref Star star, float currLat, float JDate, GridGenerator.ProjectionType type)
+    void GenerateProjectedPoint(SkyObject point, float currLat, float JDate, GridGenerator.ProjectionType type)
     {
         //APPLY STEREOGRAPHIC PROJECTION
 
-        //star.name argument?
-        if (!star.mainStar)
-            return; //do not draw
+        string prefix = "Point";
+        Color objColor = Color.clear;
 
-        star.UpdatePos(JDate);
+        switch (point)
+        {
+            case Star star:
+                if (!star.mainStar)
+                {
+                    return; //do not draw
+                }
+                else
+                {
+                    prefix = "Star_";
+                    objColor = CalculateStarColor(point.colorIndex);
+#if DEBUG
+                    if (star.binCount > 0) //track binary sistem visually
+                    {
+                        //newStar.transform.localScale *= 5f;
+                        objColor = Color.green;
+                    }
+#endif
+                }
+                point.UpdatePos(JDate);
+                break;
+            case Planet planet:
+                prefix = "Planet_";
+                objColor = Color.magenta;
+                break;
+            default:
+                return;
+        }
 
-        float raRad = star.ra * 15f * Mathf.Deg2Rad; //from RA in hours
-        float decRad = star.dec * Mathf.Deg2Rad;
+        
+
+        float raRad = point.ra * 15f * Mathf.Deg2Rad; //from RA in hours
+        float decRad = point.dec * Mathf.Deg2Rad;
 
         float projectedX; float projectedY; //final coordinates
 
@@ -471,16 +512,16 @@ public class StarGenerator : MonoBehaviour
             projectedY = starC.y / denominator;
         }
 
-        Vector3 finalPosition = new Vector3(projectedX * projectionScale, projectedY * projectionScale, -star.mag);
+        Vector3 finalPosition = new Vector3(projectedX * projectionScale, projectedY * projectionScale, -point.mag);
 
         GameObject newStar = Instantiate(starPrefab, starContainer);
         // localPosition should follow future rotations
         newStar.transform.localPosition = finalPosition;
 
-        float starScale = CalculateStarScale(star.mag);
+        float starScale = CalculateStarScale(point.mag);
         newStar.transform.localScale = new Vector3(starScale, starScale, 1f);
 
-        newStar.name = $"Star_{star.id}";
+        newStar.name = $"{prefix}{point.id}";
 
         if (type == GridGenerator.ProjectionType.STHEREOGRAPHIC || starC.z >= 0f)  //exclude from render stars below horizon, but maintain to complete constellations
         {
@@ -494,14 +535,7 @@ public class StarGenerator : MonoBehaviour
             if (starRenderer != null)
             {
                 starRenderer.sortingOrder = 1; //the greater the nearer
-                starRenderer.color = CalculateStarColor(star.colorIndex);
-#if DEBUG
-                if (star.binCount > 0) //track binary sistem visually
-                {
-                    //newStar.transform.localScale *= 5f;
-                    starRenderer.color = Color.green;
-                }
-#endif
+                starRenderer.color = objColor;
                 collider.radius = 2 * starRenderer.bounds.extents.x;  //CalculateStarRadius(magnitude, starRenderer);
             }
         }
@@ -510,7 +544,7 @@ public class StarGenerator : MonoBehaviour
             newStar.SetActive(false);
         }
 
-        instantiatedStars.Add(star.id, newStar);
+        instantiatedStars.Add(point.id, newStar);
     }
 
     void DrawConstellations()
@@ -552,8 +586,8 @@ public class StarGenerator : MonoBehaviour
     {
 #if UNITY_EDITOR || DEVELOPMENT_BUILD //development build only when builds
         //in debug use hr for label a line to better inspect line file
-        uint hr1 = database.starDict[link.startId].hr;
-        uint hr2 = database.starDict[link.endId].hr;
+        uint hr1 = (database.pointDict[link.startId] as Star)?.hr ?? 0;
+        uint hr2 = (database.pointDict[link.endId] as Star)?.hr ?? 0;
         GameObject lineObj = new GameObject($"Line_{link.identifier}_{hr1}_{hr2}");
 #else
         // Formatted name, unique name since includes star id "Line_@const_star1_star2"
@@ -643,7 +677,7 @@ public class StarGenerator : MonoBehaviour
         foreach (var kvp in instantiatedStars)
         {
             uint starId = kvp.Key;
-            float mag = database.starDict[starId].mag;
+            float mag = database.pointDict[starId].mag;
 
             // the greater, the less bright
             if (mag > pollutionThreshold)
@@ -656,8 +690,8 @@ public class StarGenerator : MonoBehaviour
         // Hide "orphan" lines
         foreach (var link in database.linkList)
         {
-            float startMag = database.starDict[link.startId].mag;
-            float endMag = database.starDict[link.endId].mag;
+            float startMag = database.pointDict[link.startId].mag;
+            float endMag = database.pointDict[link.endId].mag;
 
             // check if each point should be visible
             if (startMag > pollutionThreshold || endMag > pollutionThreshold)
