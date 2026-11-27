@@ -6243,6 +6243,7 @@ MonoBehaviour:
   starContainer: {fileID: 1619849091}
   starMatReference: {fileID: 2100000, guid: 92cd5237d30d5cb43912ff4a4b17ecfa, type: 2}
   locationValidator: {fileID: 1186618289}
+  dateValidator: {fileID: 1715394885}
   projectionScale: 50
   obscurer: {fileID: 1916438438}
   horizonMask: {fileID: 1675228995}
