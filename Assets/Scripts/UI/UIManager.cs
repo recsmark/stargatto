@@ -130,8 +130,18 @@ public class UIManager : MonoBehaviour
         if (!isInMenu && !webStartPanel.activeSelf && (!cameraController.enabled && !isHelpOpen))
         {
             ShowMainMenu();
+
         }
 #endif
+        if (isInMenu)
+        {
+            //show the prompt only when DB is ready (1/2)
+            if (starDatabase != null && starDatabase.IsReady)
+            {
+                pressAnyBtnText.gameObject.SetActive(true);
+            }
+        }
+
         if (isInMenu && Input.anyKeyDown && 
             !Input.GetMouseButtonDown((int)CmdMapper.MouseButton.MOUSE_LEFT) && 
             !Input.GetMouseButtonDown((int)CmdMapper.MouseButton.MOUSE_RIGHT) && 
@@ -139,8 +149,12 @@ public class UIManager : MonoBehaviour
         {
             if (!Input.GetKeyDown(KeyCode.Tab) && !Input.GetKeyDown(KeyCode.Escape))
             {
-                StartSimulation();
-                return;
+                if (starDatabase != null && starDatabase.IsReady)
+                {
+                    //accept the input only when DB is ready (2/2)
+                    StartSimulation();
+                    return;
+                }
             }
         }        
 
