@@ -3,14 +3,21 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
+public class SiderealTimes
+{
+    public float JD2000; //days since J20000
+    public float LST; //Local sidereal time
+
+    public SiderealTimes(double jd, double lst) 
+    { 
+        JD2000 = (float)jd;
+        LST = (float)lst;
+    }
+}
+
 public static class SiderealMath
 {
-    /// <summary>
-    /// Calc sky rotation in hour angle, also equivalent as Local Sidereal Time
-    /// </summary>
-    /// <param name="longitude">Longitude in [deg]</param>
-    /// <returns>rotation angle / LST in hours</returns>
-    public static float CalculateLocalSiderealAngle(float longitude, DateTime refUtcDate)
+    public static SiderealTimes CalculateLocalSiderealAngle(float longitude, DateTime refUtcDate)
     {
         // 1. Add UTC time to ref date from UI input
         DateTime localTime = DateTime.UtcNow;
@@ -32,13 +39,15 @@ public static class SiderealMath
             lst += 24.0;
         }
 
-        return (float)lst;
+        SiderealTimes output = new(daysSinceJ2000, lst);
+
+        return output;
     }
 
     private static double GetDaysSinceJ2000(DateTime utcNow)
     {
         // Epoch J2000: 1 Jan 2000, ore 12:00:00 UTC
-        DateTime j2000 = new DateTime(2000, 1, 1, 12, 0, 0, DateTimeKind.Utc);
+        DateTime j2000 = new(2000, 1, 1, 12, 0, 0, DateTimeKind.Utc);
         TimeSpan timeDifference = utcNow - j2000;
 
         return timeDifference.TotalDays;
@@ -82,6 +91,7 @@ public class StarContainer : MonoBehaviour
     private Quaternion initialSkyRotation;
     private float _LST_hour = 0;
     private float _UTC_rotated = 0;
+    private float _JDate = 0;
     private float _initialRotationHour = 0;
     private const float skyRotationSpeed = 15f; //[deg/hour]
     //Lat/Lon of Costigiola https://costigiola.it/dove-siamo/
@@ -112,6 +122,15 @@ public class StarContainer : MonoBehaviour
             return _UTC_rotated;
         }
     }
+
+    public float SkyJDate
+    {
+        get
+        {
+            return _JDate;
+        }
+    }
+
     public void Initialize()
     {
         DateTime initDate = DateTime.UtcNow;
@@ -151,7 +170,9 @@ public class StarContainer : MonoBehaviour
     private void Apply(DateTime dateRef, bool absolute)
     {
         // The sign of LST is inverted for the Southern Hemisphere to account for the mirrored stereographic projection.
-        _initialRotationHour = Mathf.Sign(currLatitude) * SiderealMath.CalculateLocalSiderealAngle(currLongitude, dateRef);
+        SiderealTimes output = SiderealMath.CalculateLocalSiderealAngle(currLongitude, dateRef);
+        _initialRotationHour = Mathf.Sign(currLatitude) * output.LST;
+        _JDate = output.JD2000;
         _UTC_rotated -= _initialRotationHour; //instantiate difference, assuming the same speed
 
         //modifier correction

@@ -19,8 +19,9 @@ public class StarGenerator : MonoBehaviour
     public Transform starContainer;
     [SerializeField] private Material starMatReference;
 
-    [Header("Dati posizione")]
+    [Header("Dati posizione/tempo")]
     public LocationValidator locationValidator;
+    public DateValidator dateValidator;
 
     [Header("Impostazioni Proiezione 2D")]
     [Range(0f, 100f)]
@@ -38,14 +39,14 @@ public class StarGenerator : MonoBehaviour
     Material lineBaseMaterial;
 
     // I tre stati di colore per le linee
-    public Color hiddenColor = new Color(0.2f, 0.6f, 1.0f, 0f);   // Alpha 0 = Invisible
-    public Color normalColor = new Color(0.2f, 0.6f, 1.0f, 0.4f); // Normal
-    public Color glowColor = new Color(0.8f, 0.9f, 1.0f, 0.9f);   // Glowing
+    public Color hiddenColor = new(0.2f, 0.6f, 1.0f, 0f);   // Alpha 0 = Invisible
+    public Color normalColor = new(0.2f, 0.6f, 1.0f, 0.4f); // Normal
+    public Color glowColor = new(0.8f, 0.9f, 1.0f, 0.9f);   // Glowing
 
     [Header("Inquinamento Luminoso")]
     public Camera mainCamera;
-    public Color normalSkyColor = new Color(0.01f, 0.02f, 0.05f);  // Normal sky color
-    public Color pollutedSkyColor = new Color(0.1f, 0.15f, 0.25f); // Polluted City sky color
+    public Color normalSkyColor = new(0.01f, 0.02f, 0.05f);  // Normal sky color
+    public Color pollutedSkyColor = new(0.1f, 0.15f, 0.25f); // Polluted City sky color
     public float pollutionThreshold = 3f; // Stelle con magnitudine >
 
     private bool isPolluted = false;
@@ -55,7 +56,7 @@ public class StarGenerator : MonoBehaviour
     private Dictionary<uint, GameObject> instantiatedStars = new Dictionary<uint, GameObject>();
 
     // Every lines of a constellation
-    private LineRendDict constellationLines = new LineRendDict();
+    private LineRendDict constellationLines = new();
 
     // Discovered constellations
     public HashSet<string> visibleConstellations = new HashSet<string>();
@@ -237,6 +238,9 @@ public class StarGenerator : MonoBehaviour
 
         if (locationValidator != null)
             locationValidator.OnLocSuccessfullyValidated += RecalcSky;
+
+        if (dateValidator != null)
+            dateValidator.OnDateSuccessfullyValidated += RecalcSky;
     }
 
     public void ToggleProjection()
@@ -337,13 +341,14 @@ public class StarGenerator : MonoBehaviour
     {
         float latitude = locationValidator.currentLatitude;
         float longitude = locationValidator.currentLongitude;
+        float JDate = skyContainer.SkyJDate;
 
         RecalcLocalTransformation(latitude, longitude);
         GridGenerator.ProjectionType type = absoluteProjection ? GridGenerator.ProjectionType.STHEREOGRAPHIC : GridGenerator.ProjectionType.EQ_AZIMUTHAL;
 
         if (skyGenerated) return; // generate once
 
-        DrawStars(type, latitude);
+        DrawStars(type, latitude, JDate);
         DrawConstellations();
 
         grid.DrawGrid(projectionScale, latitude, type);
@@ -392,12 +397,12 @@ public class StarGenerator : MonoBehaviour
         skyGenerated = false;
     }
 
-    void DrawStars(GridGenerator.ProjectionType type, float currLat)
+    void DrawStars(GridGenerator.ProjectionType type, float currLat, float JDate = 0f)
     {
         foreach (var kvp in database.starDict)
         {
-            StarData star = kvp.Value;
-            GenerateProjectedStar(ref star, currLat, type);
+            Star star = kvp.Value;
+            GenerateProjectedStar(ref star, currLat, JDate, type);
         }
 
         totalConstellations = database.constellationDict.Count;
@@ -408,13 +413,15 @@ public class StarGenerator : MonoBehaviour
         CustomLogger.Log($"Generazione completata: {totalVisiblelStars} stelle create a schermo.");
     }
 
-    void GenerateProjectedStar(ref StarData star, float currLat, GridGenerator.ProjectionType type)
+    void GenerateProjectedStar(ref Star star, float currLat, float JDate, GridGenerator.ProjectionType type)
     {
         //APPLY STEREOGRAPHIC PROJECTION
 
         //star.name argument?
         if (!star.mainStar)
             return; //do not draw
+
+        star.UpdatePos(JDate);
 
         float raRad = star.ra * 15f * Mathf.Deg2Rad; //from RA in hours
         float decRad = star.dec * Mathf.Deg2Rad;
@@ -541,7 +548,7 @@ public class StarGenerator : MonoBehaviour
 
     void CreateConstellationLine(Vector3 startLocalPos, Vector3 endLocalPos,
                                  float startRadius, float endRadius, 
-                                 StarLinksItem link, LinkType type)
+                                 StarsLinkItem link, LinkType type)
     {
 #if UNITY_EDITOR || DEVELOPMENT_BUILD //development build only when builds
         //in debug use hr for label a line to better inspect line file

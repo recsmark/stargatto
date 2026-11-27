@@ -90,7 +90,7 @@ public class SkyInteractionManager : MonoBehaviour
                 // ... and use in dictionary to retrieve name
                 if (starGenerator.database.starDict.ContainsKey(starId))
                 {
-                    StarData star = starGenerator.database.starDict[starId];
+                    Star star = starGenerator.database.starDict[starId];
                     if (star.mainStar)
                     {
                         ShowStarTooltip(ref star);
@@ -99,7 +99,7 @@ public class SkyInteractionManager : MonoBehaviour
                     if (star.binCount == 1)
                     {
                         //2nd star
-                        StarData second = starGenerator.database.starDict[star.idsBins[0]];
+                        Star second = starGenerator.database.starDict[star.idsBins[0]];
                         if (second != null)
                             Show2ndStarTooltip(ref second, star.name);
                     }
@@ -171,7 +171,7 @@ public class SkyInteractionManager : MonoBehaviour
     }
 
     // --- UTILITY METHODS ---
-    private void ShowStarTooltip(ref StarData star, bool isMain = true, bool sameName = false)
+    private void ShowStarTooltip(ref Star star, bool isMain = true, bool sameName = false)
     {
         static string AssignLetter(bool isMain, byte binCount)
         {
@@ -200,7 +200,7 @@ public class SkyInteractionManager : MonoBehaviour
         ShowTooltip(textToShow, false, !isMain);
     }
 
-    private void Show2ndStarTooltip(ref StarData star, string mainName)
+    private void Show2ndStarTooltip(ref Star star, string mainName)
     {
         ShowStarTooltip(ref star, false, mainName == star.name);
     }

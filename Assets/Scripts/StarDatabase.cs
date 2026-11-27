@@ -1,60 +1,15 @@
 ﻿using JetBrains.Annotations;
 using System;
 using System.Collections;
-using System.Linq; // needed for Map.All
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
+using System.Linq; // needed for Map.All
+using Unity.Collections.LowLevel.Unsafe; // needed for WebGL
 using UnityEngine;
+using UnityEngine.Analytics;
+using UnityEngine.Networking;
 using UnityEngine.UIElements;
-using UnityEngine.Networking; // needed for WebGL
-
-public enum LinkType
-{
-    NO_LINK_TYPE = 0,
-    CONSTELLATION = 1,
-    ASTERISM = 2,
-    GEOMETRY = 3
-}
-
-public class StarData
-{
-    public uint hr;
-    public uint id;
-    public bool mainStar; //main Star in a binary system
-    public string name;
-    public float ra;
-    public float dec;
-    public float mag;
-    public float dist;
-    public float colorIndex;
-    public uint binMain;
-    public byte binInd;
-    public uint[] idsBins = new uint[2] { 0, 0 };
-    public byte binCount = 0;
-    public Vector3 xyz;
-}
-
-public class ConstellationInfo //TBD csv ES
-{
-    public string id;
-    public string itaName;
-    public string engName;
-    public string meaning;
-    public string hemisphere;
-    public LinkType type = LinkType.NO_LINK_TYPE;
-    public string colorStr = "000000"; //no color
-    public Color color = Color.clear; //no color
-}
-
-public class StarLinksItem
-{
-    public string identifier;
-    public uint startId;
-    public uint endId;
-}
-
-// --- DATABASE MANAGER ---
 
 public class StarDatabase : MonoBehaviour
 {
@@ -65,9 +20,9 @@ public class StarDatabase : MonoBehaviour
     public bool isLoaded = false;
 
     // public maps for StarGenerator
-    public Dictionary<uint, StarData> starDict = new Dictionary<uint, StarData>();
+    public Dictionary<uint, Star> starDict = new Dictionary<uint, Star>();
     public Dictionary<string, ConstellationInfo> constellationDict = new Dictionary<string, ConstellationInfo>();
-    public List<StarLinksItem> linkList = new List<StarLinksItem>(); //must be a list: couple of lines with the same constellation ID!
+    public List<StarsLinkItem> linkList = new List<StarsLinkItem>(); //must be a list: couple of lines with the same constellation ID!
 
     private class StarCsvIndices
     {
@@ -78,15 +33,21 @@ public class StarDatabase : MonoBehaviour
                                    //hip ->  hipparcos ID
         const string idStr = "id"; //primary id in this database
         const string nameStr = "proper"; //common name
+        const string magStr = "Mag"; //apparent magnitude
+        const string absMagStr = "absMag"; //absolute magnitude (from 10 pc)
+#if USE_DB_ANGULAR_VALUES
         const string raStr = "RA"; //right ascension for epoch and equinox 2000.0
         const string decStr = "Dec"; //declination for epoch and equinox 2000.0
-        const string magStr = "Mag"; //apparent magnitude
         const string distStr = "dist"; //distance ([pc] from catalogue)
+#else
+        const string cartVelStr = "vx"; //cartesian velocity (y,z following) [pc/cy]
+#endif
+        const string cartStr = "x"; //cartesian coordinates (y,z following) [pc]
         const string colStr = "CI"; //color index when known
         const string conStr = "con"; //std const abbreviation
         const string binIndStr = "comp"; //if the star is the 2nd/3rd star in a system, the number is > 1
         const string binMainStr = "comp_primary"; //if the star is the 2nd/3rd star in a system, != from id
-        const string cartStr = "x"; //cartesian coordinates (y,z following)
+        
         const string baseStr = "base"; //alternative/catalogue name
 
         // -1 as null idx
@@ -95,15 +56,20 @@ public class StarDatabase : MonoBehaviour
             { hrStr, -1 },
             { idStr, -1 },
             { nameStr, -1 },
+            { magStr, -1 },
+            { absMagStr, -1 },
+            { cartStr, -1 },
+#if !USE_DB_ANGULAR_VALUES
+            { cartVelStr, -1 },
+#else
             { raStr, -1 },
             { decStr, -1 },
-            { magStr, -1 },
             { distStr, -1 },
+#endif
             { colStr, -1 },
             { conStr, -1 },
             { binIndStr, -1 },
             { binMainStr, -1 },
-            { cartStr, -1 },
             { baseStr, -1 }
         };
 
@@ -111,17 +77,24 @@ public class StarDatabase : MonoBehaviour
         public int hr => indices[hrStr];
         public int id => indices[idStr];
         public int name => indices[nameStr];
+        public int mag => indices[magStr];
+        public int absMag => indices[absMagStr];
+        public int x => indices[cartStr];
+        public int y => indices[cartStr] + 1;
+        public int z => indices[cartStr] + 2;
+#if !USE_DB_ANGULAR_VALUES
+        public int vx => indices[cartVelStr];
+        public int vy => indices[cartVelStr] + 1;
+        public int vz => indices[cartVelStr] + 2;
+#else
         public int ra => indices[raStr];
         public int dec => indices[decStr];
-        public int mag => indices[magStr];
         public int dist => indices[distStr];
+#endif
         public int color => indices[colStr];
         public int con => indices[conStr];
         public int binInd => indices[binIndStr];
         public int binMain => indices[binMainStr];
-        public int x => indices[cartStr];
-        public int y => indices[cartStr]+1;
-        public int z => indices[cartStr]+2;
         public int nbase => indices[baseStr];
 
         public bool IsValid()
@@ -281,25 +254,35 @@ public class StarDatabase : MonoBehaviour
                 CustomLogger.Log($"[DB-R] n° stelle: {starCount}");
                 for (uint i = 0; i < starCount; i++)
                 {
-                    StarData star = new StarData();
+                    Star star = new Star();
                     star.id = reader.ReadUInt32();
                     star.hr = reader.ReadUInt32();
                     star.name = ObfuscateString(reader.ReadString());
+                    star.mag = reader.ReadSingle();
+                    star.absMag = reader.ReadSingle();
+                    float x = reader.ReadSingle();
+                    float y = reader.ReadSingle();
+                    float z = reader.ReadSingle();
+                    star.posJ2000 = new Vector3(x, y, z);
+#if USE_DB_ANGULAR_VALUES
                     star.ra = reader.ReadSingle();
                     star.dec = reader.ReadSingle();
-                    star.mag = reader.ReadSingle();
                     star.dist = reader.ReadSingle();
+#else
+                    float vx = 100f * reader.ReadSingle();
+                    float vy = 100f * reader.ReadSingle();
+                    float vz = 100f * reader.ReadSingle();
+                    star.vel = new Vector3(vx, vy, vz);
+#endif
                     star.colorIndex = reader.ReadSingle();
                     star.binMain = reader.ReadUInt32();
                     star.binInd = reader.ReadByte();
                     star.mainStar = reader.ReadBoolean();
-                    float x = reader.ReadSingle();
-                    float y = reader.ReadSingle();
-                    float z = reader.ReadSingle();
-                    star.xyz = new Vector3(x, y, z);
                     star.idsBins[0] = reader.ReadUInt32();
                     star.idsBins[1] = reader.ReadUInt32();
                     star.binCount = reader.ReadByte();
+
+                    star.UpdatePos();
 
                     starDict.Add(star.id, star);
                 }
@@ -310,7 +293,7 @@ public class StarDatabase : MonoBehaviour
                 CustomLogger.Log($"[DB-R] n° costellazioni: {constCount}");
                 for (uint i = 0; i < constCount; i++)
                 {
-                    ConstellationInfo info = new ConstellationInfo();
+                    ConstellationInfo info = new();
                     info.id = ObfuscateString(reader.ReadString());
                     info.itaName = ObfuscateString(reader.ReadString());
                     info.engName = ObfuscateString(reader.ReadString());
@@ -339,7 +322,7 @@ public class StarDatabase : MonoBehaviour
                 CustomLogger.Log($"[DB-R] n° linee: {linkCount}");
                 for (uint i = 0; i < linkCount; i++)
                 {
-                    StarLinksItem link = new StarLinksItem();
+                    StarsLinkItem link = new();
                     link.identifier = ObfuscateString(reader.ReadString());
                     link.startId = reader.ReadUInt32();
                     link.endId = reader.ReadUInt32();
@@ -366,8 +349,8 @@ public class StarDatabase : MonoBehaviour
     // --- READ FROM .CSV and CREATING .DAT ---
     private bool ReadFromCsvAndCreateDat()
     {
-        StarCsvIndices starIdx = new StarCsvIndices();
-        ConstCsvIndices constIdx = new ConstCsvIndices();
+        StarCsvIndices starIdx = new();
+        ConstCsvIndices constIdx = new();
         //LinkCsvIndices linkIdx = new LinkCsvIndices();
 
         //Lines CSVs:
@@ -411,7 +394,7 @@ public class StarDatabase : MonoBehaviour
             string[] data = constLines[i].Split(constIdx.separator);
             if (data.Length >= constIdx.indices.Count)
             {
-                ConstellationInfo info = new ConstellationInfo();
+                ConstellationInfo info = new();
                 info.id = ObfuscateString(data[constIdx.id].ToUpper());
                 if (constellationDict.ContainsKey(info.id))
                 {
@@ -443,6 +426,11 @@ public class StarDatabase : MonoBehaviour
         }
 
         uint missedStars = 0;
+#if USE_DB_ANGULAR_VALUES && DEBUG
+        uint raCounter = 0;
+        uint decCounter = 0;
+        uint distCounter = 0;
+#endif
         for (uint i = 1; i < starLines.Length; i++) //  jump header
         {
             string[] data = starLines[i].Split(starIdx.separator);
@@ -457,27 +445,77 @@ public class StarDatabase : MonoBehaviour
                     continue; //safe exit after maxStars stars, TBD filtering
                 }
 
-                StarData star = new StarData();
+                Star star = new();
                 star.id = uint.Parse(data[starIdx.id]);
                 star.hr = uint.Parse(data[starIdx.hr]);
                 star.mainStar = true;
                 star.name = ObfuscateString(data[starIdx.name]);
-                star.ra = float.Parse(data[starIdx.ra], CultureInfo.InvariantCulture); //InvariantCulture set -> . as decimal for all users
+                star.mag = float.Parse(data[starIdx.mag], CultureInfo.InvariantCulture); //InvariantCulture set -> . as decimal for all users
+                star.absMag = float.Parse(data[starIdx.absMag], CultureInfo.InvariantCulture);
+                star.posJ2000 = new Vector3(float.Parse(data[starIdx.x], CultureInfo.InvariantCulture),
+                                            float.Parse(data[starIdx.y], CultureInfo.InvariantCulture),
+                                            float.Parse(data[starIdx.z], CultureInfo.InvariantCulture));
+#if !USE_DB_ANGULAR_VALUES
+                star.vel = new Vector3(float.Parse(data[starIdx.vx], CultureInfo.InvariantCulture),
+                                       float.Parse(data[starIdx.vy], CultureInfo.InvariantCulture),
+                                       float.Parse(data[starIdx.vz], CultureInfo.InvariantCulture));
+#else
+                star.ra = float.Parse(data[starIdx.ra], CultureInfo.InvariantCulture);
                 star.dec = float.Parse(data[starIdx.dec], CultureInfo.InvariantCulture);
-                star.mag = float.Parse(data[starIdx.mag], CultureInfo.InvariantCulture);
                 star.dist = float.Parse(data[starIdx.dist], CultureInfo.InvariantCulture);
+
+#endif
                 star.colorIndex = float.Parse(data[starIdx.color], CultureInfo.InvariantCulture);
                 star.binMain = uint.Parse(data[starIdx.binMain]);
                 star.binInd = byte.Parse(data[starIdx.binInd]);
-                star.xyz = new Vector3(float.Parse(data[starIdx.x], CultureInfo.InvariantCulture),
-                                       float.Parse(data[starIdx.y], CultureInfo.InvariantCulture),
-                                       float.Parse(data[starIdx.z], CultureInfo.InvariantCulture));
+
+
+
+#if USE_DB_ANGULAR_VALUES && DEBUG
+                //Calculated ra/dec vs db values
+                float ra = star.ra;
+                float dec = star.dec;
+                float dist = star.dist;
+
+                float calcRa = Mathf.Atan2(star.posJ2000.y, star.posJ2000.x) * Mathf.Rad2Deg / 15f; //[hour]
+                if (calcRa < 0f) calcRa += 24f;
+
+                float xyProj = Mathf.Sqrt(star.posJ2000.x * star.posJ2000.x + star.posJ2000.y * star.posJ2000.y);
+                float calcDec = Mathf.Atan2(star.posJ2000.z, xyProj) * Mathf.Rad2Deg;
+
+                float raDiff = Mathf.Abs(calcRa - ra);
+                if (raDiff > 12f) raDiff = 24f - raDiff; // Es. 23.999h vs 0.001h
+
+                if (raDiff > 0.01f) //OK!
+                {
+                    CustomLogger.Log($"confronto ra: {calcRa} {ra} = {raDiff}");
+                    raCounter++;
+                }
+                if (Mathf.Abs(calcDec - dec) > 0.01f) //OK!
+                {
+                    CustomLogger.Log($"confronto dec: {calcDec} {dec} = {Mathf.Abs(calcDec - dec)}");
+                    decCounter++;
+                }
+
+                if (Mathf.Abs(star.dist - dist) > 0.5f) //OK!
+                { 
+                    CustomLogger.Log($"confronto R: {star.dist} / {dist} = {Mathf.Abs(star.dist - dist)}");
+                    distCounter++;
+                }
+#endif
+
                 string baseName = ObfuscateString(data[starIdx.nbase]);
                 if (string.IsNullOrEmpty(star.name) || star.name == "\"\"")
                     star.name = baseName;
                 starDict.Add(star.id, star);
-            }                
+            }
         }
+
+#if USE_DB_ANGULAR_VALUES && DEBUG
+        CustomLogger.Log($"Discrepanze ra: {raCounter}");
+        CustomLogger.Log($"Discrepanze dec: {decCounter}");
+        CustomLogger.Log($"Discrepanze R: {distCounter}");
+#endif
 
         //check for binaries TBD refinition
         foreach (var star in starDict)
@@ -546,8 +584,8 @@ public class StarDatabase : MonoBehaviour
                         constellationDict[cName].colorStr = ObfuscateString(color, xorKey); ;
                     }
 
-                    StarData startStar;
-                    StarData endStar;
+                    Star startStar;
+                    Star endStar;
                     for (uint startId = 1; startId < lineCount; startId++)
                     {
                         startStarHr = uint.Parse(data[indices.num + startId]);
@@ -580,7 +618,7 @@ public class StarDatabase : MonoBehaviour
                         //add only referenced stars
                         if (starDict.ContainsKey(startStar.id) && starDict.ContainsKey(endStar.id)) //redundant check
                         {
-                            StarLinksItem link = new StarLinksItem();
+                            StarsLinkItem link = new StarsLinkItem();
                             link.identifier = cName;
                             link.startId = startStar.id;
                             link.endId = endStar.id;
@@ -630,17 +668,25 @@ public class StarDatabase : MonoBehaviour
                 writer.Write(kvp.Value.id);
                 writer.Write(kvp.Value.hr);
                 writer.Write(kvp.Value.name);
+                writer.Write(kvp.Value.mag);
+                writer.Write(kvp.Value.absMag);
+                writer.Write(kvp.Value.posJ2000.x);
+                writer.Write(kvp.Value.posJ2000.y);
+                writer.Write(kvp.Value.posJ2000.z);
+#if !USE_DB_ANGULAR_VALUES
+                writer.Write(kvp.Value.vel.x);
+                writer.Write(kvp.Value.vel.y);
+                writer.Write(kvp.Value.vel.z);
+#else
                 writer.Write(kvp.Value.ra);
                 writer.Write(kvp.Value.dec);
-                writer.Write(kvp.Value.mag);
                 writer.Write(kvp.Value.dist);
+#endif
                 writer.Write(kvp.Value.colorIndex);
                 writer.Write(kvp.Value.binMain);
                 writer.Write(kvp.Value.binInd);
                 writer.Write(kvp.Value.mainStar);
-                writer.Write(kvp.Value.xyz.x);
-                writer.Write(kvp.Value.xyz.y);
-                writer.Write(kvp.Value.xyz.z);
+
                 writer.Write(kvp.Value.idsBins[0]);
                 writer.Write(kvp.Value.idsBins[1]);
                 writer.Write(kvp.Value.binCount);
