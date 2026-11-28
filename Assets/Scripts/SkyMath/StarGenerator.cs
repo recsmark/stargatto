@@ -341,7 +341,7 @@ public class StarGenerator : MonoBehaviour
     {
         float latitude = locationValidator.currentLatitude;
         float longitude = locationValidator.currentLongitude;
-        float JDate = skyContainer.SkyJDate;
+        double JDate = skyContainer.SkyJDate;
 
         RecalcLocalTransformation(latitude, longitude);
         GridGenerator.ProjectionType type = absoluteProjection ? GridGenerator.ProjectionType.STHEREOGRAPHIC : GridGenerator.ProjectionType.EQ_AZIMUTHAL;
@@ -397,7 +397,7 @@ public class StarGenerator : MonoBehaviour
         skyGenerated = false;
     }
 
-    void DrawStars(GridGenerator.ProjectionType type, float currLat, float JDate = 0f)
+    void DrawStars(GridGenerator.ProjectionType type, float currLat, double JDate = UniversalConst.J2000)
     {
         foreach (SkyObject star in database.pointDict.Values.OfType<Star>())
         {
@@ -426,7 +426,7 @@ public class StarGenerator : MonoBehaviour
         CustomLogger.Log($"Generazione completata: {totalVisiblelStars} stelle create a schermo.");
     }
 
-    void GenerateProjectedPoint(SkyObject point, float currLat, float JDate, GridGenerator.ProjectionType type)
+    void GenerateProjectedPoint(SkyObject point, float currLat, double JDate, GridGenerator.ProjectionType type)
     {
         //APPLY STEREOGRAPHIC PROJECTION
 

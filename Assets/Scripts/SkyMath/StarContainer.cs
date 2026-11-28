@@ -5,12 +5,12 @@ using UnityEngine;
 
 public class SiderealTimes
 {
-    public float JD2000; //days since J20000
+    public double JD2000; //days since J20000
     public float LST; //Local sidereal time
 
     public SiderealTimes(double jd, double lst) 
     { 
-        JD2000 = (float)jd;
+        JD2000 = jd;
         LST = (float)lst;
     }
 }
@@ -91,7 +91,7 @@ public class StarContainer : MonoBehaviour
     private Quaternion initialSkyRotation;
     private float _LST_hour = 0;
     private float _UTC_rotated = 0;
-    private float _JDate = 0;
+    private double _JDate = 0;
     private float _initialRotationHour = 0;
     private const float skyRotationSpeed = 15f; //[deg/hour]
     //Lat/Lon of Costigiola https://costigiola.it/dove-siamo/
@@ -123,7 +123,7 @@ public class StarContainer : MonoBehaviour
         }
     }
 
-    public float SkyJDate
+    public double SkyJDate
     {
         get
         {

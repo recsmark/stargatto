@@ -12,7 +12,9 @@ public static class UniversalConst
 
     public static double GetJ2000Cy(double JDate)
     {
-        return (JDate - J2000) / 36525f; //centuries from J2000
+        //JDate already are days from J2000
+        return (JDate / 36525f); //centuries from J2000
+        //if not, use return (JDate - J2000) / 36525f;
     }
 }
 
