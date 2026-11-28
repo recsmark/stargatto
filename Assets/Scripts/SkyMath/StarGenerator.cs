@@ -397,7 +397,7 @@ public class StarGenerator : MonoBehaviour
         skyGenerated = false;
     }
 
-    void DrawStars(GridGenerator.ProjectionType type, float currLat, double JDate = UniversalConst.J2000)
+    void DrawStars(GridGenerator.ProjectionType type, float currLat, double JDate = 0)
     {
         foreach (SkyObject star in database.pointDict.Values.OfType<Star>())
         {

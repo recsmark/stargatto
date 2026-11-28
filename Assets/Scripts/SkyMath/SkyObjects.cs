@@ -62,7 +62,7 @@ public abstract class SkyObject
     public void updatePos(double x = 0) { } //placeholder
 #else //else, calc angular values from x,y,z: better to take into account speed over time
     public float dist { get => pos.magnitude; } // [variable]
-    public virtual void UpdatePos(double JDate = J2000)  //input argument needed for the overrided methods
+    public virtual void UpdatePos(double JDate = 0)  //input argument needed for the overrided methods
     {
         //recalc ra, dec and dist from new pos
         ra = Mathf.Atan2(pos.y, pos.x) * Mathf.Rad2Deg / 15f; //[h]
@@ -92,7 +92,7 @@ public class Star : SkyObject
     public Vector3 vel = new(0f, 0f, 0f); //Cartesian velocity [pc / cy]
 
 #if !USE_DB_ANGULAR_VALUES
-    public override void UpdatePos(double JDate = J2000)
+    public override void UpdatePos(double JDate = 0)
     {
         double T = GetJ2000Cy(JDate);
         pos = posJ2000 + vel * (float)T; //[pc]
@@ -150,7 +150,7 @@ public class Planet : SkyObject
     }
 
 #if !USE_DB_ANGULAR_VALUES
-    public void UpdatePos(Vector3 earthPos, double JDate = J2000)
+    public void UpdatePos(Vector3 earthPos, double JDate = 0)
     {
         double CalcEccAnomaly (double M, double e) //Eccentric (real) anomaly 
         {
