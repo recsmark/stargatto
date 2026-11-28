@@ -334,9 +334,9 @@ public class StarDatabase : MonoBehaviour
                     star.dec = reader.ReadSingle();
                     star.dist = reader.ReadSingle();
 #else
-                    float vx = 100f * reader.ReadSingle();
-                    float vy = 100f * reader.ReadSingle();
-                    float vz = 100f * reader.ReadSingle();
+                    float vx = reader.ReadSingle();
+                    float vy = reader.ReadSingle();
+                    float vz = reader.ReadSingle();
                     star.vel = new UnityEngine.Vector3(vx, vy, vz);
 #endif
                     star.colorIndex = reader.ReadSingle();
@@ -365,28 +365,28 @@ public class StarDatabase : MonoBehaviour
                     double e = reader.ReadDouble();
                     double i = reader.ReadDouble();
                     double L = reader.ReadDouble();
-                    double O = reader.ReadDouble();
                     double w = reader.ReadDouble();
+                    double O = reader.ReadDouble();
 
                     double a_dot = reader.ReadDouble();
                     double e_dot = reader.ReadDouble();
                     double i_dot = reader.ReadDouble();
                     double L_dot = reader.ReadDouble();
-                    double O_dot = reader.ReadDouble();
                     double w_dot = reader.ReadDouble();
+                    double O_dot = reader.ReadDouble();
 
                     float b = reader.ReadSingle();
                     float c = reader.ReadSingle();
                     float s = reader.ReadSingle();
                     float f = reader.ReadSingle();
 
-                    Planet planet = new(a, e, i, L, O, w);
+                    Planet planet = new(a, e, i, L, w, O);
                     planet.engName = engName;
                     planet.descr = descr;
                     planet.name = name;
                     planet.id = pId; //id 
                     planet.mag = 0f;  //TBD MAG !!!
-                    planet.SetOrbitalParamDot(a_dot, e_dot, i_dot, L_dot, O_dot, w_dot);
+                    planet.SetOrbitalParamDot(a_dot, e_dot, i_dot, L_dot, w_dot, O_dot);
                     planet.SetAdditionalTerms(b, c, s, f);
 
                     planet.UpdatePos();
@@ -574,9 +574,10 @@ public class StarDatabase : MonoBehaviour
                                                         float.Parse(data[starIdx.y], CultureInfo.InvariantCulture),
                                                         float.Parse(data[starIdx.z], CultureInfo.InvariantCulture));
 #if !USE_DB_ANGULAR_VALUES
-                star.vel = new UnityEngine.Vector3(float.Parse(data[starIdx.vx], CultureInfo.InvariantCulture),
-                                                   float.Parse(data[starIdx.vy], CultureInfo.InvariantCulture),
-                                                   float.Parse(data[starIdx.vz], CultureInfo.InvariantCulture));
+                //interpret velocity as speed in pc/cy instead of pc/yr
+                star.vel = new UnityEngine.Vector3(100f * float.Parse(data[starIdx.vx], CultureInfo.InvariantCulture),
+                                                   100f * float.Parse(data[starIdx.vy], CultureInfo.InvariantCulture),
+                                                   100f * float.Parse(data[starIdx.vz], CultureInfo.InvariantCulture));
 #else
                 star.ra = float.Parse(data[starIdx.ra], CultureInfo.InvariantCulture);
                 star.dec = float.Parse(data[starIdx.dec], CultureInfo.InvariantCulture);
@@ -688,28 +689,28 @@ public class StarDatabase : MonoBehaviour
                     double e = double.Parse(data[planetIdx.e], CultureInfo.InvariantCulture);
                     double i = double.Parse(data[planetIdx.i], CultureInfo.InvariantCulture);
                     double L = double.Parse(data[planetIdx.L], CultureInfo.InvariantCulture);
-                    double O = double.Parse(data[planetIdx.O], CultureInfo.InvariantCulture);
                     double w = double.Parse(data[planetIdx.w], CultureInfo.InvariantCulture);
+                    double O = double.Parse(data[planetIdx.O], CultureInfo.InvariantCulture);
 
                     double a_dot = double.Parse(data[planetIdx.a_dot], CultureInfo.InvariantCulture);
                     double e_dot = double.Parse(data[planetIdx.e_dot], CultureInfo.InvariantCulture);
                     double i_dot = double.Parse(data[planetIdx.i_dot], CultureInfo.InvariantCulture);
                     double L_dot = double.Parse(data[planetIdx.L_dot], CultureInfo.InvariantCulture);
-                    double O_dot = double.Parse(data[planetIdx.O_dot], CultureInfo.InvariantCulture);
                     double w_dot = double.Parse(data[planetIdx.w_dot], CultureInfo.InvariantCulture);
+                    double O_dot = double.Parse(data[planetIdx.O_dot], CultureInfo.InvariantCulture);
 
                     float b = float.Parse(data[planetIdx.b], CultureInfo.InvariantCulture);
                     float c = float.Parse(data[planetIdx.c], CultureInfo.InvariantCulture);
                     float s = float.Parse(data[planetIdx.s], CultureInfo.InvariantCulture);
                     float f = float.Parse(data[planetIdx.f], CultureInfo.InvariantCulture);
 
-                    Planet planet = new(a, e, i, L, O, w);
+                    Planet planet = new(a, e, i, L, w, O);
                     planet.engName = engName;
                     planet.descr = descr;
                     planet.name = name;
                     planet.id = (uint)ushort.MaxValue + p; //id 
                                                            //TBD MAG !!!
-                    planet.SetOrbitalParamDot(a_dot, e_dot, i_dot, L_dot, O_dot, w_dot);
+                    planet.SetOrbitalParamDot(a_dot, e_dot, i_dot, L_dot, w_dot, O_dot);
                     planet.SetAdditionalTerms(b, c, s, f);
                     planet.UpdatePos();
 
@@ -883,14 +884,16 @@ public class StarDatabase : MonoBehaviour
                 writer.Write(planet.eJ2000.paramJ2000);
                 writer.Write(planet.iJ2000.paramJ2000);
                 writer.Write(planet.LJ2000.paramJ2000);
+                writer.Write(planet.wJ2000.paramJ2000);
                 writer.Write(planet.ΩJ2000.paramJ2000);
-                writer.Write(planet.wJ2000.param_dot);
+
                 writer.Write(planet.aJ2000.param_dot);
                 writer.Write(planet.eJ2000.param_dot);
                 writer.Write(planet.iJ2000.param_dot);
                 writer.Write(planet.LJ2000.param_dot);
-                writer.Write(planet.ΩJ2000.param_dot);
                 writer.Write(planet.wJ2000.param_dot);
+                writer.Write(planet.ΩJ2000.param_dot);
+
                 writer.Write(planet.addB);
                 writer.Write(planet.addC);
                 writer.Write(planet.addS);

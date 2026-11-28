@@ -5,12 +5,12 @@ using static UniversalConst;
 public static class UniversalConst
 {
     public const double Deg2Rad = Math.PI / 180.0;
-    public const double EarthObliq = 23.43928f; // [deg]
-    public const float J2000 = 2451545.0f; // [days]
+    public const double EarthObliq = 23.43928; // [deg]
+    public const double J2000 = 2451545.0; // [days]
     public static readonly double cEarthObl = Math.Cos(EarthObliq * Deg2Rad);
     public static readonly double sEarthObl = Math.Sin(EarthObliq * Deg2Rad);
 
-    public static float GetJ2000Cy(float JDate)
+    public static double GetJ2000Cy(double JDate)
     {
         return (JDate - J2000) / 36525f; //centuries from J2000
     }
@@ -37,7 +37,7 @@ public class OrbitalParam
         param_dot = pDot;
     }
 
-    public double Update(float T = 0) //centuries
+    public double Update(double T = 0) //centuries
     {
         return paramJ2000 + param_dot * T;
     }
@@ -57,10 +57,10 @@ public abstract class SkyObject
     public float dec; //[deg]
 #if USE_DB_ANGULAR_VALUES
     public float dist; // [variable]
-    public void updatePos(float x = 0) { } //placeholder
+    public void updatePos(double x = 0) { } //placeholder
 #else //else, calc angular values from x,y,z: better to take into account speed over time
     public float dist { get => pos.magnitude; } // [variable]
-    public virtual void UpdatePos(float JDate = J2000)  //input argument needed for the overrided methods
+    public virtual void UpdatePos(double JDate = J2000)  //input argument needed for the overrided methods
     {
         //recalc ra, dec and dist from new pos
         ra = Mathf.Atan2(pos.y, pos.x) * Mathf.Rad2Deg / 15f; //[h]
@@ -90,10 +90,10 @@ public class Star : SkyObject
     public Vector3 vel = new(0f, 0f, 0f); //Cartesian velocity [pc / cy]
 
 #if !USE_DB_ANGULAR_VALUES
-    public override void UpdatePos(float JDate = J2000)
+    public override void UpdatePos(double JDate = J2000)
     {
-        float T = GetJ2000Cy(JDate);
-        pos = posJ2000 + vel * T; //[pc]
+        double T = GetJ2000Cy(JDate);
+        pos = posJ2000 + vel * (float)T; //[pc]
         base.UpdatePos();
     }
 #endif
@@ -119,7 +119,7 @@ public class Planet : SkyObject
 
     public string descr;
 
-    public Planet(double a, double e, double i, double L, double Ω, double w)
+    public Planet(double a, double e, double i, double L, double w, double Ω)
     {
         aJ2000 = new OrbitalParam(a, 0f);
         eJ2000 = new OrbitalParam(e, 0f); 
@@ -129,7 +129,7 @@ public class Planet : SkyObject
         ΩJ2000 = new OrbitalParam(Ω, 0f);
     }
 
-    public void SetOrbitalParamDot(double aV, double eV, double iV, double LV, double ΩV, double wV)
+    public void SetOrbitalParamDot(double aV, double eV, double iV, double LV, double wV, double ΩV)
     {
         aJ2000.param_dot = aV;
         eJ2000.param_dot = eV;
@@ -148,58 +148,64 @@ public class Planet : SkyObject
     }
 
 #if !USE_DB_ANGULAR_VALUES
-    public void UpdatePos(Vector3 eathPos, float JDate = 0)
+    public void UpdatePos(Vector3 earthPos, double JDate = J2000)
     {
         double CalcEccAnomaly (double M, double e) //Eccentric (real) anomaly 
         {
-            double tol = 10E-6;
+            const double tol = 10e-6; // 10^(-6)
             uint counter = 0;
-            double E;
+            double eStar = 57.29578 * e; // (180/pi)*e
             double deltaM, deltaE;
-            E = M + e * Math.Sin(M *Deg2Rad); //E0 from JPL
+            double E = M + eStar * Math.Sin(M *Deg2Rad); //E0 from JPL page
             while (counter < 10) //Solve Kepler's Equation iterativelly
             {
-                deltaM = M - (E * e * Math.Sin(E * Deg2Rad));
-                deltaE = deltaM/(1 - e * Math.Cos(E  * Deg2Rad));
-                if (deltaE < tol)
+                deltaM = M - (E - eStar * Math.Sin(E * Deg2Rad));
+                deltaE = deltaM/(1.0 - e * Math.Cos(E  * Deg2Rad));
+                if (Math.Abs(deltaE) < tol)
                     break;
-                E = E + deltaE;
+                E += deltaE;
+                ++counter;
             }
             return E;
         }
 
-        float T = GetJ2000Cy(JDate);
+        double T = GetJ2000Cy(JDate);
+        float Trad = (float)(Deg2Rad * T);
 
         double a = aJ2000.Update(T);
         double e = eJ2000.Update(T);
-        double i = eJ2000.Update(T);
-        double L = eJ2000.Update(T);
-        double w = eJ2000.Update(T);
-        double Ω = eJ2000.Update(T);
+        double i = iJ2000.Update(T);
+        double L = LJ2000.Update(T);
+        double w = wJ2000.Update(T);
+        double Ω = ΩJ2000.Update(T);
 
-        double ω = w - Ω; //argument of perihelium
-        double M = L - w + addB * T * T + (addC * Mathf.Cos(addF * T)) + (addS * Mathf.Sin(addF * T)); //mean anomaly
-        if (M > 180f) 
-            M -= 360f;
+        double wp = w - Ω; //argument of perihelium
+        double M = L - w + (addB * T * T) 
+                         + (addC * Mathf.Cos(addF * Trad)) 
+                         + (addS * Mathf.Sin(addF * Trad)); //mean anomaly
+
+        //normalization mean anomaly in [-180 .. 180]
+        M = ((M + 180.0) % 360.0 + 360.0) % 360.0 - 180.0;
+
         double E = CalcEccAnomaly(M, e);
 
         //heliocentric coordinates
-        double xH = a * Math.Cos(E * Deg2Rad);
+        double xH = a * (Math.Cos(E * Deg2Rad) - e);
         double yH = a * Math.Sqrt(1 - (e*e)) * Math.Sin(E * Deg2Rad);
         //double zH = 0;
 
         //in the elliptic plane
-        double cw = Math.Cos(ω * Deg2Rad); double sw = Math.Sin(ω * Deg2Rad);
+        double cw = Math.Cos(wp * Deg2Rad); double sw = Math.Sin(wp * Deg2Rad);
         double cΩ = Math.Cos(Ω * Deg2Rad); double sΩ = Math.Sin(Ω * Deg2Rad);
         double ci = Math.Cos(i * Deg2Rad); double si = Math.Sin(i * Deg2Rad);
         double xE = (cw * cΩ - sw * sΩ * ci) * xH + (-sw * cΩ - cw * sΩ * ci) * yH;
-        double yE = (cw * sΩ - sw * cΩ * ci) * xH + (-sw * sΩ + cw * cΩ * ci) * yH;
+        double yE = (cw * sΩ + sw * cΩ * ci) * xH + (-sw * sΩ + cw * cΩ * ci) * yH;
         double zE = (sw * si) * xH + (cw * si) * yH;
 
         //in the equatorial plane, referenced to Earth
-        pos.x = -eathPos.x + (float) xE;
-        pos.y = -eathPos.y + (float) (cEarthObl * yE - sEarthObl * zE);
-        pos.z = -eathPos.z + (float) (sEarthObl * yE - cEarthObl * zE);
+        pos.x = -earthPos.x + (float) xE;
+        pos.y = -earthPos.y + (float) (cEarthObl * yE - sEarthObl * zE);
+        pos.z = -earthPos.z + (float) (sEarthObl * yE + cEarthObl * zE);
 
         base.UpdatePos();
     }
